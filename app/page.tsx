@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { auth, provider, db } from "../lib/firebase";
+import { auth, provider, db, functions } from "../lib/firebase";
 import { FirebaseError } from "firebase/app";
 import {
   onAuthStateChanged,
@@ -23,6 +23,7 @@ import {
   updateDoc,
   getDocs,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 
 type Product = {
   id: string;
@@ -353,13 +354,18 @@ export default function Home() {
         const snap = await getDocs(colRef);
 
         if (snap.empty) {
-          for (const product of initialProducts) {
-            const endAt = product.endAt ?? parseLegacyEndTextToMs(product.endText);
-            await setDoc(doc(db, "products", product.id), {
-              ...product,
-              endAt,
-              expireAt: endAt + EXPIRE_AFTER_END_MS,
-            });
+          // 데모 데이터 시딩은 선택 동작으로 유지: 권한이 없으면 무시하고 빈 목록으로 시작
+          try {
+            for (const product of initialProducts) {
+              const endAt = product.endAt ?? parseLegacyEndTextToMs(product.endText);
+              await setDoc(doc(db, "products", product.id), {
+                ...product,
+                endAt,
+                expireAt: endAt + EXPIRE_AFTER_END_MS,
+              });
+            }
+          } catch (seedError) {
+            console.warn("initial products seed skipped", seedError);
           }
         }
 
@@ -864,7 +870,6 @@ export default function Home() {
       alert("마감일은 1일 이상 30일 이하로 선택해주세요.");
       return;
     }
-    const endAt = Date.now() + endDays * DAY_MS;
 
     const imageList = newImagesText
       .split("\n")
@@ -879,37 +884,26 @@ export default function Home() {
     setRegisterLoading(true);
 
     try {
-      const newRef = doc(collection(db, "products"));
-      const sellerName = getMaskedName(currentUser);
-
-      const newProduct: Product = {
-        id: newRef.id,
+      const createProductWithFee = httpsCallable(functions, "createProductWithFee");
+      await createProductWithFee({
         title: newTitle.trim(),
         desc: newDesc.trim(),
-        price,
-        buyNowPrice,
-        seller: sellerName,
-        sellerUid: currentUser.uid,
         category: newCategory,
-        endText: "",
-        endAt,
-        expireAt: endAt + EXPIRE_AFTER_END_MS,
-        images: imageList,
+        price,
         minBid,
-        highestBidder: "",
-        bidCount: 0,
-        likeCount: 0,
-        viewCount: 0,
-        editCount: 0,
-        createdAt: Date.now(),
-      };
-
-      await setDoc(newRef, newProduct);
+        buyNowPrice,
+        endDays,
+        images: imageList,
+      });
       closeRegisterModal();
-      alert("상품이 등록되었습니다.");
+      alert("상품이 등록되었습니다. 등록 수수료 1,000P가 차감되었습니다.");
     } catch (error) {
       console.error(error);
-      alert("상품 등록 중 문제가 발생했습니다.");
+      if (error instanceof FirebaseError) {
+        alert(error.message || "상품 등록 중 문제가 발생했습니다.");
+      } else {
+        alert("상품 등록 중 문제가 발생했습니다.");
+      }
     } finally {
       setRegisterLoading(false);
     }

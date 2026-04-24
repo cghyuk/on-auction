@@ -11,7 +11,9 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isSignedIn();
+      // 상품 생성은 서버 Callable Function(createProductWithFee)에서만 허용
+      allow create: if false;
+      allow update, delete: if isSignedIn();
 
       match /bids/{bidId} {
         allow read: if true;
