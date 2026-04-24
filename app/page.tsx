@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { auth, provider, db } from "../lib/firebase";
+import { FirebaseError } from "firebase/app";
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -526,6 +527,27 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
+      if (error instanceof FirebaseError) {
+        const helpByCode: Record<string, string> = {
+          "auth/unauthorized-domain":
+            "Firebase Console > Authentication > Settings > Authorized domains에 현재 접속 도메인을 추가해주세요. (onauction.kr, www.onauction.kr, on-auction.vercel.app)",
+          "auth/popup-blocked":
+            "브라우저에서 팝업이 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도해주세요.",
+          "auth/popup-closed-by-user":
+            "로그인 팝업이 닫혀 인증이 취소되었습니다. 다시 시도해주세요.",
+          "auth/operation-not-allowed":
+            "Firebase Console > Authentication > Sign-in method에서 Google 로그인을 활성화해주세요.",
+          "auth/network-request-failed":
+            "네트워크 문제로 인증 요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+          "auth/invalid-api-key":
+            "Firebase API 키가 올바르지 않습니다. 배포 환경변수를 다시 확인해주세요.",
+        };
+        const help =
+          helpByCode[error.code] ??
+          "콘솔 오류 코드를 확인해 Firebase 인증 설정을 점검해주세요.";
+        alert(`구글 로그인 실패 (${error.code})\n${help}`);
+        return;
+      }
       alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
