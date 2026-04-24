@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { auth, provider, db } from "../lib/firebase";
 import {
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
   User,
 } from "firebase/auth";
@@ -266,6 +266,7 @@ export default function Home() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [loginRedirectPending, setLoginRedirectPending] = useState(false);
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -343,6 +344,20 @@ export default function Home() {
       if (unsubscribeProfile) unsubscribeProfile();
       unsubscribeAuth();
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "google") return;
+
+    params.delete("auth");
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${
+      window.location.hash
+    }`;
+    window.history.replaceState({}, "", nextUrl);
+    void handleGoogleLogin();
   }, []);
 
   useEffect(() => {
@@ -522,10 +537,20 @@ export default function Home() {
   const isAuctionClosed = !!selectedProduct?.endAt && selectedProduct.endAt <= nowMs;
 
   const handleGoogleLogin = async () => {
+    setLoginRedirectPending(true);
+    const fallbackTimer = setTimeout(() => {
+      setLoginRedirectPending(false);
+      alert(
+        "로그인 이동이 시작되지 않았습니다. 승인 도메인/브라우저 추적 차단 설정을 확인해주세요."
+      );
+    }, 3000);
+
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error(error);
+      clearTimeout(fallbackTimer);
+      setLoginRedirectPending(false);
       alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
@@ -1016,9 +1041,22 @@ export default function Home() {
               </button>
             </>
           ) : (
-            <button className="hover:underline" onClick={handleGoogleLogin}>
-              구글 로그인
-            </button>
+            <a
+              href="?auth=google"
+              className={`hover:underline ${
+                loginRedirectPending ? "cursor-not-allowed text-gray-400" : ""
+              }`}
+              onClick={(e) => {
+                if (loginRedirectPending) {
+                  e.preventDefault();
+                  return;
+                }
+                e.preventDefault();
+                void handleGoogleLogin();
+              }}
+            >
+              {loginRedirectPending ? "로그인 페이지 이동 중..." : "구글 로그인"}
+            </a>
           )}
 
           <button className="hover:underline">이용안내</button>

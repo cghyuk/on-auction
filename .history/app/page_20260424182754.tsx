@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { auth, provider, db } from "../lib/firebase";
 import {
   onAuthStateChanged,
+  signInWithRedirect,
   signInWithPopup,
   signOut,
   User,
@@ -526,6 +527,24 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
+      const errorCode =
+        typeof error === "object" && error && "code" in error
+          ? String((error as { code?: string }).code ?? "")
+          : "";
+      const needRedirectFallback =
+        errorCode.includes("popup") ||
+        errorCode.includes("blocked") ||
+        errorCode.includes("cancelled");
+
+      if (needRedirectFallback) {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          console.error(redirectError);
+        }
+      }
+
       alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
   };

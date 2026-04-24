@@ -266,6 +266,7 @@ export default function Home() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -336,6 +337,8 @@ export default function Home() {
         });
       } catch (error) {
         console.error("auth/profile sync error", error);
+      } finally {
+        setAuthLoading(false);
       }
     });
 
@@ -526,7 +529,7 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
-      alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      alert("구글 로그인 중 문제가 발생했습니다.");
     }
   };
 
@@ -999,7 +1002,9 @@ export default function Home() {
             상품등록
           </button>
 
-          {currentUser ? (
+          {authLoading ? (
+            <span className="text-gray-300">확인 중...</span>
+          ) : currentUser ? (
             <>
               <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
               <button

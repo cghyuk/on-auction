@@ -526,7 +526,7 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
-      alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      alert("구글 로그인 중 문제가 발생했습니다.");
     }
   };
 

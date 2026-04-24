@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { auth, provider, db } from "../lib/firebase";
 import {
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
   User,
 } from "firebase/auth";
@@ -523,7 +523,7 @@ export default function Home() {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error(error);
       alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");

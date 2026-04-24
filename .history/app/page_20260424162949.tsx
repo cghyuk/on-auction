@@ -45,7 +45,7 @@ type Product = {
   createdAt?: number;
 };
 
-const EXPIRE_AFTER_END_MS = 7 * 24 * 60 * 60 * 1000;
+const EXPIRE_AFTER_END_MS = 1 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type BidLog = {
@@ -266,6 +266,7 @@ export default function Home() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -292,51 +293,49 @@ export default function Home() {
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      try {
-        setCurrentUser(user);
-        if (unsubscribeProfile) {
-          unsubscribeProfile();
-          unsubscribeProfile = undefined;
-        }
+      setCurrentUser(user);
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = undefined;
+      }
 
-        if (!user) {
-          setCurrentUserProfile(null);
-          return;
-        }
+      if (!user) {
+        setCurrentUserProfile(null);
+        setAuthLoading(false);
+        return;
+      }
 
-        const userRef = doc(db, "users", user.uid);
-        const now = Date.now();
-        const existingUserSnap = await getDoc(userRef);
-        if (!existingUserSnap.exists()) {
-          await setDoc(userRef, {
-            uid: user.uid,
+      const userRef = doc(db, "users", user.uid);
+      const now = Date.now();
+      const existingUserSnap = await getDoc(userRef);
+      if (!existingUserSnap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email ?? "",
+          displayName: user.displayName ?? "",
+          photoURL: user.photoURL ?? "",
+          phone: "",
+          point: 10000,
+          createdAt: now,
+          updatedAt: now,
+        } satisfies UserProfile);
+      } else {
+        await setDoc(
+          userRef,
+          {
             email: user.email ?? "",
             displayName: user.displayName ?? "",
             photoURL: user.photoURL ?? "",
-            phone: "",
-            point: 10000,
-            createdAt: now,
             updatedAt: now,
-          } satisfies UserProfile);
-        } else {
-          await setDoc(
-            userRef,
-            {
-              email: user.email ?? "",
-              displayName: user.displayName ?? "",
-              photoURL: user.photoURL ?? "",
-              updatedAt: now,
-            },
-            { merge: true }
-          );
-        }
-
-        unsubscribeProfile = onSnapshot(userRef, (snapshot) => {
-          setCurrentUserProfile((snapshot.data() as UserProfile | undefined) ?? null);
-        });
-      } catch (error) {
-        console.error("auth/profile sync error", error);
+          },
+          { merge: true }
+        );
       }
+
+      unsubscribeProfile = onSnapshot(userRef, (snapshot) => {
+        setCurrentUserProfile((snapshot.data() as UserProfile | undefined) ?? null);
+      });
+      setAuthLoading(false);
     });
 
     return () => {
@@ -526,7 +525,7 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
-      alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      alert("구글 로그인 중 문제가 발생했습니다.");
     }
   };
 
@@ -999,7 +998,9 @@ export default function Home() {
             상품등록
           </button>
 
-          {currentUser ? (
+          {authLoading ? (
+            <span className="text-gray-300">확인 중...</span>
+          ) : currentUser ? (
             <>
               <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
               <button

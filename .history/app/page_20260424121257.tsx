@@ -13,7 +13,6 @@ import {
   deleteDoc,
   doc,
   limit as fsLimit,
-  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -34,19 +33,14 @@ type Product = {
   category: string;
   endText: string;
   endAt?: number;
-  expireAt?: number;
   images: string[];
   minBid: number;
   highestBidder?: string;
   bidCount: number;
   likeCount: number;
   viewCount: number;
-  editCount?: number;
   createdAt?: number;
 };
-
-const EXPIRE_AFTER_END_MS = 7 * 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 type BidLog = {
   id: string;
@@ -59,32 +53,21 @@ type BidLog = {
   createdAt: number;
 };
 
-type UserProfile = {
-  uid: string;
-  email: string;
-  displayName: string;
-  photoURL: string;
-  phone: string;
-  point: number;
-  createdAt: number;
-  updatedAt: number;
-};
-
 const categories = [
   "전체",
-  "수집품",
-  "디지털/가전",
-  "패션의류/패션잡화",
   "가구/인테리어",
+  "패션의류/패션잡화",
+  "디지털/가전",
   "자동차",
+  "수집품",
 ];
 
 const productCategories = [
-  "수집품",
-  "디지털/가전",
-  "패션의류/패션잡화",
   "가구/인테리어",
+  "패션의류/패션잡화",
+  "디지털/가전",
   "자동차",
+  "수집품",
 ];
 
 const parseLegacyEndTextToMs = (endText: string) => {
@@ -95,11 +78,7 @@ const parseLegacyEndTextToMs = (endText: string) => {
   return Date.now() + Math.max(totalMs, 10 * 60 * 1000);
 };
 
-const formatCountdown = (
-  endAt?: number,
-  nowMs?: number,
-  options?: { showSecondsUnderOneHour?: boolean }
-) => {
+const formatCountdown = (endAt?: number, nowMs?: number) => {
   if (!endAt || !nowMs) return "마감 정보 없음";
   const diff = endAt - nowMs;
   if (diff <= 0) return "경매 종료";
@@ -108,10 +87,7 @@ const formatCountdown = (
   const hour = Math.floor((totalSec % 86400) / 3600);
   const minute = Math.floor((totalSec % 3600) / 60);
   const sec = totalSec % 60;
-  const showSecondsUnderOneHour = options?.showSecondsUnderOneHour ?? true;
-  if (day > 0) return `${day}일 ${hour}시간 ${minute}분`;
-  if (!showSecondsUnderOneHour) return `${hour}시간 ${minute}분`;
-  if (totalSec >= 3600) return `${hour}시간 ${minute}분`;
+  if (day > 0) return `${day}일 ${hour}시간 ${minute}분 ${sec}초`;
   return `${hour}시간 ${minute}분 ${sec}초`;
 };
 
@@ -265,7 +241,7 @@ export default function Home() {
   );
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -274,8 +250,8 @@ export default function Home() {
   const [newCategory, setNewCategory] = useState("디지털/가전");
   const [newPrice, setNewPrice] = useState("1000");
   const [newMinBid, setNewMinBid] = useState("500");
-  const [newBuyNowPrice, setNewBuyNowPrice] = useState("2000");
-  const [newEndDays, setNewEndDays] = useState("1");
+  const [newBuyNowPrice, setNewBuyNowPrice] = useState("");
+  const [newEndAtText, setNewEndAtText] = useState("");
   const [newImagesText, setNewImagesText] = useState("");
   const [bidLogs, setBidLogs] = useState<BidLog[]>([]);
   const [nowMs, setNowMs] = useState(0);
@@ -286,63 +262,15 @@ export default function Home() {
   const [editDesc, setEditDesc] = useState("");
   const [editCategory, setEditCategory] = useState("디지털/가전");
   const [editMinBid, setEditMinBid] = useState("500");
-  const [editEndDays, setEditEndDays] = useState("1");
+  const [editEndAtText, setEditEndAtText] = useState("");
   const [editImagesText, setEditImagesText] = useState("");
 
   useEffect(() => {
-    let unsubscribeProfile: (() => void) | undefined;
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      try {
-        setCurrentUser(user);
-        if (unsubscribeProfile) {
-          unsubscribeProfile();
-          unsubscribeProfile = undefined;
-        }
-
-        if (!user) {
-          setCurrentUserProfile(null);
-          return;
-        }
-
-        const userRef = doc(db, "users", user.uid);
-        const now = Date.now();
-        const existingUserSnap = await getDoc(userRef);
-        if (!existingUserSnap.exists()) {
-          await setDoc(userRef, {
-            uid: user.uid,
-            email: user.email ?? "",
-            displayName: user.displayName ?? "",
-            photoURL: user.photoURL ?? "",
-            phone: "",
-            point: 10000,
-            createdAt: now,
-            updatedAt: now,
-          } satisfies UserProfile);
-        } else {
-          await setDoc(
-            userRef,
-            {
-              email: user.email ?? "",
-              displayName: user.displayName ?? "",
-              photoURL: user.photoURL ?? "",
-              updatedAt: now,
-            },
-            { merge: true }
-          );
-        }
-
-        unsubscribeProfile = onSnapshot(userRef, (snapshot) => {
-          setCurrentUserProfile((snapshot.data() as UserProfile | undefined) ?? null);
-        });
-      } catch (error) {
-        console.error("auth/profile sync error", error);
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
     });
-
-    return () => {
-      if (unsubscribeProfile) unsubscribeProfile();
-      unsubscribeAuth();
-    };
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -353,11 +281,9 @@ export default function Home() {
 
         if (snap.empty) {
           for (const product of initialProducts) {
-            const endAt = product.endAt ?? parseLegacyEndTextToMs(product.endText);
             await setDoc(doc(db, "products", product.id), {
               ...product,
-              endAt,
-              expireAt: endAt + EXPIRE_AFTER_END_MS,
+              endAt: product.endAt ?? parseLegacyEndTextToMs(product.endText),
             });
           }
         }
@@ -366,9 +292,8 @@ export default function Home() {
           colRef,
           (snapshot) => {
             const loaded = snapshot.docs.map((d) => {
-              const raw = d.data() as Omit<Product, "endAt" | "expireAt"> & {
+              const raw = d.data() as Omit<Product, "endAt"> & {
                 endAt?: number | { toMillis: () => number };
-                expireAt?: number | { toMillis: () => number };
               };
               const endAtValue =
                 typeof raw.endAt === "number"
@@ -376,19 +301,9 @@ export default function Home() {
                   : raw.endAt && typeof raw.endAt === "object" && "toMillis" in raw.endAt
                   ? raw.endAt.toMillis()
                   : parseLegacyEndTextToMs(raw.endText);
-              const expireAtValue =
-                typeof raw.expireAt === "number"
-                  ? raw.expireAt
-                  : raw.expireAt &&
-                    typeof raw.expireAt === "object" &&
-                    "toMillis" in raw.expireAt
-                  ? raw.expireAt.toMillis()
-                  : endAtValue + EXPIRE_AFTER_END_MS;
               return {
                 ...raw,
                 endAt: endAtValue,
-                expireAt: expireAtValue,
-                editCount: raw.editCount ?? 0,
               };
             });
             loaded.sort((a, b) => {
@@ -457,28 +372,6 @@ export default function Home() {
     return `${id[0]}${"*".repeat(id.length - 2)}${id[id.length - 1]}`;
   };
 
-  const formatPhone = (phone: string) => {
-    const normalized = phone.replace(/[^0-9]/g, "");
-    if (normalized.length === 11) {
-      return `${normalized.slice(0, 3)}-${normalized.slice(3, 7)}-${normalized.slice(7)}`;
-    }
-    if (normalized.length === 10) {
-      return `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}-${normalized.slice(6)}`;
-    }
-    return normalized;
-  };
-
-  const formatMaskedPhone = (phone: string) => {
-    const normalized = phone.replace(/[^0-9]/g, "");
-    if (normalized.length === 11) {
-      return `${normalized.slice(0, 3)}-****-${normalized.slice(7)}`;
-    }
-    if (normalized.length === 10) {
-      return `${normalized.slice(0, 3)}-***-${normalized.slice(6)}`;
-    }
-    return "미등록";
-  };
-
   const isOwnedByCurrentUser = (product: Product | null, user: User | null) => {
     if (!product || !user) return false;
     if (product.sellerUid && product.sellerUid === user.uid) return true;
@@ -487,7 +380,6 @@ export default function Home() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      if (product.expireAt && product.expireAt <= nowMs) return false;
       const categoryMatch =
         selectedCategory === "전체" || product.category === selectedCategory;
 
@@ -499,15 +391,10 @@ export default function Home() {
 
       return categoryMatch && searchMatch;
     });
-  }, [products, selectedCategory, search, nowMs]);
+  }, [products, selectedCategory, search]);
 
   const selectedProduct =
     products.find((product) => product.id === selectedProductId) ?? null;
-  const selectedNextBidPrice = selectedProduct
-    ? selectedProduct.price + selectedProduct.minBid
-    : 0;
-  const selectedWillBuyNowByMinBid =
-    !!selectedProduct?.buyNowPrice && selectedNextBidPrice >= selectedProduct.buyNowPrice;
 
   const rankByProductId = useMemo(() => {
     const sorted = [...products].sort((a, b) => b.price - a.price);
@@ -526,7 +413,7 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
-      alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      alert("구글 로그인 중 문제가 발생했습니다.");
     }
   };
 
@@ -560,13 +447,11 @@ export default function Home() {
     setSelectedImageIndex(0);
   };
 
-  const openWarningModal = async (productId: string) => {
+  const openWarningModal = (productId: string) => {
     if (!currentUser) {
       alert("입찰하려면 먼저 구글 로그인해주세요.");
       return;
     }
-    const ok = await ensurePhoneProfile("입찰");
-    if (!ok) return;
 
     const product = products.find((item) => item.id === productId);
     if (isOwnedByCurrentUser(product ?? null, currentUser)) {
@@ -592,7 +477,6 @@ export default function Home() {
   const applyBid = async (productId: string) => {
     const product = products.find((item) => item.id === productId);
     if (!product || !currentUser) return;
-    if (!(await ensurePhoneProfile("입찰"))) return;
 
     if (isOwnedByCurrentUser(product, currentUser)) {
       alert("본인이 등록한 상품에는 입찰할 수 없습니다.");
@@ -634,27 +518,13 @@ export default function Home() {
           throw new Error("마감된 경매입니다.");
         }
 
-        const defaultNextPrice = latest.price + bidAmount;
-        const isBuyNowTriggered =
-          mode === "min" &&
-          !!latest.buyNowPrice &&
-          defaultNextPrice >= latest.buyNowPrice;
-        const nextPrice = isBuyNowTriggered ? latest.buyNowPrice! : defaultNextPrice;
+        const nextPrice = latest.price + bidAmount;
         const nextBidCount = latest.bidCount + 1;
-        const nextHighestBidder = isBuyNowTriggered
-          ? `${bidderName}(즉시구매)`
-          : highestBidder;
 
         transaction.update(productRef, {
           price: nextPrice,
-          highestBidder: nextHighestBidder,
+          highestBidder,
           bidCount: nextBidCount,
-          ...(isBuyNowTriggered
-            ? {
-                endAt: Date.now(),
-                expireAt: Date.now() + EXPIRE_AFTER_END_MS,
-              }
-            : {}),
         });
 
         const bidRef = doc(collection(db, "products", productId, "bids"));
@@ -664,22 +534,18 @@ export default function Home() {
           bidder: bidderName,
           bidderUid: currentUser.uid,
           mode,
-          bidAmount: nextPrice - latest.price,
+          bidAmount,
           priceAfterBid: nextPrice,
           createdAt: Date.now(),
         } satisfies BidLog);
 
-        return { nextPrice, highestBidder: nextHighestBidder, isBuyNowTriggered };
+        return { nextPrice, highestBidder };
       });
 
       alert(
-        result.isBuyNowTriggered
-          ? `즉시구매 완료\n구매 금액: ${result.nextPrice.toLocaleString()}원\n구매자: ${
-              result.highestBidder
-            }`
-          : `입찰 완료\n현재 입찰가: ${result.nextPrice.toLocaleString()}원\n최고 입찰자: ${
-              result.highestBidder
-            }`
+        `입찰 완료\n현재 입찰가: ${result.nextPrice.toLocaleString()}원\n최고 입찰자: ${
+          result.highestBidder
+        }`
       );
     } catch (error) {
       console.error(error);
@@ -697,69 +563,11 @@ export default function Home() {
     closeWarningModal();
   };
 
-  const ensurePhoneProfile = async (actionLabel: string) => {
-    if (!currentUser) {
-      alert(`${actionLabel}은 로그인 후 가능합니다.`);
-      return false;
-    }
-    if (currentUserProfile?.phone?.trim()) return true;
-
-    const input = window.prompt(
-      `${actionLabel} 전에 연락처(전화번호) 입력이 필요합니다.\n예: 01012345678`
-    );
-    if (!input) return false;
-
-    const normalized = input.replace(/[^0-9]/g, "");
-    if (normalized.length < 10 || normalized.length > 11) {
-      alert("전화번호 형식이 올바르지 않습니다. 숫자 10~11자리로 입력해주세요.");
-      return false;
-    }
-
-    try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        phone: normalized,
-        updatedAt: Date.now(),
-      });
-      return true;
-    } catch (error) {
-      console.error(error);
-      alert("연락처 저장 중 문제가 발생했습니다.");
-      return false;
-    }
-  };
-
-  const handleEditPhone = async () => {
-    if (!currentUser) return;
-    const prevPhone = currentUserProfile?.phone ? formatPhone(currentUserProfile.phone) : "";
-    const input = window.prompt(
-      "전화번호를 수정해주세요. (숫자만 10~11자리)",
-      prevPhone
-    );
-    if (!input) return;
-    const normalized = input.replace(/[^0-9]/g, "");
-    if (normalized.length < 10 || normalized.length > 11) {
-      alert("전화번호 형식이 올바르지 않습니다. 숫자 10~11자리로 입력해주세요.");
-      return;
-    }
-    try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        phone: normalized,
-        updatedAt: Date.now(),
-      });
-      alert("전화번호가 수정되었습니다.");
-    } catch (error) {
-      console.error(error);
-      alert("전화번호 수정 중 문제가 발생했습니다.");
-    }
-  };
-
-  const openRegisterModal = async () => {
+  const openRegisterModal = () => {
     if (!currentUser) {
       alert("상품 등록은 로그인 후 가능합니다.");
       return;
     }
-    const ok = await ensurePhoneProfile("상품 등록");
-    if (!ok) return;
     setRegisterOpen(true);
   };
 
@@ -770,29 +578,9 @@ export default function Home() {
     setNewCategory("디지털/가전");
     setNewPrice("1000");
     setNewMinBid("500");
-    setNewBuyNowPrice("2000");
-    setNewEndDays("1");
+    setNewBuyNowPrice("");
+    setNewEndAtText("");
     setNewImagesText("");
-  };
-
-  const syncFromBuyNowPrice = (nextBuyNowPrice: number, shouldLowerBasePrice: boolean) => {
-    const safeBuyNowPrice = Math.max(2000, Math.floor(nextBuyNowPrice / 1000) * 1000);
-    setNewBuyNowPrice(String(safeBuyNowPrice));
-    if (shouldLowerBasePrice) {
-      setNewPrice(String(safeBuyNowPrice - 1000));
-    }
-  };
-
-  const handleIncreaseBuyNowPrice = () => {
-    const current = Number(newBuyNowPrice) || 2000;
-    syncFromBuyNowPrice(current + 1000, false);
-  };
-
-  const handleDecreaseBuyNowPrice = () => {
-    const current = Number(newBuyNowPrice) || 2000;
-    const currentBasePrice = Number(newPrice) || 1000;
-    const isLinked = currentBasePrice === current - 1000;
-    syncFromBuyNowPrice(Math.max(2000, current - 1000), isLinked);
   };
 
   const handleRegisterProduct = async () => {
@@ -800,21 +588,21 @@ export default function Home() {
       alert("상품 등록은 로그인 후 가능합니다.");
       return;
     }
-    if (!(await ensurePhoneProfile("상품 등록"))) return;
 
     if (
       !newTitle.trim() ||
       !newDesc.trim() ||
       !newPrice.trim() ||
-      !newMinBid.trim()
+      !newMinBid.trim() ||
+      !newEndAtText.trim()
     ) {
-      alert("상품명, 설명, 시작가, 입찰단위를 입력해주세요.");
+      alert("상품명, 설명, 시작가, 입찰단위, 마감일시를 입력해주세요.");
       return;
     }
 
     const price = Number(newPrice);
     const minBid = Number(newMinBid);
-    const buyNowPrice = Number(newBuyNowPrice);
+    const buyNowPrice = newBuyNowPrice.trim() ? Number(newBuyNowPrice) : 0;
 
     if (!price || price < 1000 || price % 1000 !== 0) {
       alert("시작가는 1,000원 이상이며 1,000원 단위로 입력해주세요.");
@@ -826,23 +614,18 @@ export default function Home() {
       return;
     }
     if (
-      !buyNowPrice ||
-      buyNowPrice < 2000 ||
-      buyNowPrice % 1000 !== 0 ||
-      buyNowPrice < price + 1000
+      newBuyNowPrice.trim() &&
+      (!buyNowPrice || buyNowPrice < price || buyNowPrice % 1000 !== 0)
     ) {
-      alert(
-        "즉시구매가는 최소 2,000원이며, 시작가보다 최소 1,000원 높아야 합니다."
-      );
+      alert("즉시구매가는 시작가 이상이며 1,000원 단위로 입력해주세요.");
       return;
     }
 
-    const endDays = Number(newEndDays);
-    if (!endDays || endDays < 1 || endDays > 30) {
-      alert("마감일은 1일 이상 30일 이하로 선택해주세요.");
+    const endAt = new Date(newEndAtText).getTime();
+    if (!endAt || endAt <= Date.now()) {
+      alert("마감일시는 현재 시각 이후로 선택해주세요.");
       return;
     }
-    const endAt = Date.now() + endDays * DAY_MS;
 
     const imageList = newImagesText
       .split("\n")
@@ -865,20 +648,18 @@ export default function Home() {
         title: newTitle.trim(),
         desc: newDesc.trim(),
         price,
-        buyNowPrice,
+        buyNowPrice: buyNowPrice || undefined,
         seller: sellerName,
         sellerUid: currentUser.uid,
         category: newCategory,
         endText: "",
         endAt,
-        expireAt: endAt + EXPIRE_AFTER_END_MS,
         images: imageList,
         minBid,
         highestBidder: "",
         bidCount: 0,
         likeCount: 0,
         viewCount: 0,
-        editCount: 0,
         createdAt: Date.now(),
       };
 
@@ -900,10 +681,10 @@ export default function Home() {
     setEditCategory(selectedProduct.category);
     setEditMinBid(String(selectedProduct.minBid));
     setEditImagesText(selectedProduct.images.join("\n"));
-    const remainDays = selectedProduct.endAt
-      ? Math.max(1, Math.min(30, Math.ceil((selectedProduct.endAt - Date.now()) / DAY_MS)))
-      : 1;
-    setEditEndDays(String(remainDays));
+    const endAtLocal = selectedProduct.endAt
+      ? new Date(selectedProduct.endAt).toISOString().slice(0, 16)
+      : "";
+    setEditEndAtText(endAtLocal);
     setEditOpen(true);
   };
 
@@ -913,24 +694,24 @@ export default function Home() {
     setEditDesc("");
     setEditCategory("디지털/가전");
     setEditMinBid("500");
-    setEditEndDays("1");
+    setEditEndAtText("");
     setEditImagesText("");
   };
 
   const handleUpdateProduct = async () => {
     if (!selectedProduct || !currentUser || !isOwnProduct) return;
-    const currentEditCount = selectedProduct.editCount ?? 0;
-    if (currentEditCount >= 2) {
-      alert("상품 수정은 최대 2회까지 가능합니다.");
-      return;
-    }
-    if (!editTitle.trim() || !editDesc.trim() || !editMinBid.trim()) {
-      alert("상품명, 설명, 입찰단위는 필수입니다.");
+    if (!editTitle.trim() || !editDesc.trim() || !editMinBid.trim() || !editEndAtText.trim()) {
+      alert("상품명, 설명, 입찰단위, 마감일시는 필수입니다.");
       return;
     }
     const minBid = Number(editMinBid);
     if (!minBid || minBid < 500 || minBid % 500 !== 0) {
       alert("입찰 단위는 500원 이상이며 500원 단위로 입력해주세요.");
+      return;
+    }
+    const endAt = new Date(editEndAtText).getTime();
+    if (!endAt || endAt <= nowMs) {
+      alert("마감일시는 현재 시각 이후로 선택해주세요.");
       return;
     }
     const imageList = editImagesText
@@ -949,8 +730,8 @@ export default function Home() {
         desc: editDesc.trim(),
         category: editCategory,
         minBid,
+        endAt,
         images: imageList,
-        editCount: currentEditCount + 1,
       });
       closeEditModal();
       alert("상품 정보가 수정되었습니다.");
@@ -999,18 +780,11 @@ export default function Home() {
             상품등록
           </button>
 
-          {currentUser ? (
+          {authLoading ? (
+            <span className="text-gray-300">확인 중...</span>
+          ) : currentUser ? (
             <>
               <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
-              <button
-                className="text-xs text-gray-200 underline underline-offset-2 hover:text-white"
-                onClick={handleEditPhone}
-              >
-                전화번호:{" "}
-                {currentUserProfile?.phone
-                  ? formatMaskedPhone(currentUserProfile.phone)
-                  : "미등록(클릭하여 등록)"}
-              </button>
               <button className="hover:underline" onClick={handleLogout}>
                 로그아웃
               </button>
@@ -1213,8 +987,7 @@ export default function Home() {
                 <div className="mb-4 flex gap-2">
                   <button
                     onClick={openEditModal}
-                    disabled={(selectedProduct.editCount ?? 0) >= 2}
-                    className="flex-1 rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    className="flex-1 rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600"
                   >
                     내 상품 수정
                   </button>
@@ -1224,11 +997,6 @@ export default function Home() {
                   >
                     내 상품 삭제
                   </button>
-                </div>
-              )}
-              {isOwnProduct && (
-                <div className="mb-4 text-xs text-gray-500">
-                  수정 횟수: {selectedProduct.editCount ?? 0}/2
                 </div>
               )}
 
@@ -1267,14 +1035,9 @@ export default function Home() {
                       disabled={isOwnProduct || isAuctionClosed}
                     />
                     <span>
-                      {selectedWillBuyNowByMinBid ? "즉시구매" : "즉시 입찰"}{" "}
+                      즉시 입찰{" "}
                       <span className="font-bold text-blue-600">
-                        {(
-                          selectedWillBuyNowByMinBid
-                            ? selectedProduct.buyNowPrice
-                            : selectedProduct.price + selectedProduct.minBid
-                        )?.toLocaleString()}
-                        원
+                        {(selectedProduct.price + selectedProduct.minBid).toLocaleString()}원
                       </span>
                     </span>
                   </label>
@@ -1322,10 +1085,7 @@ export default function Home() {
                         : "bg-blue-600 hover:bg-blue-700"
                     }`}
                   >
-                    {(bidModeById[selectedProduct.id] || "min") === "min" &&
-                    selectedWillBuyNowByMinBid
-                      ? "즉시구매하기"
-                      : "입찰하기"}
+                    입찰하기
                   </button>
                 </div>
               </div>
@@ -1457,10 +1217,10 @@ export default function Home() {
               />
 
               <input
-                type="text"
-                value={`마감시간 고정 (현재: ${editEndDays}일 뒤 마감)`}
-                readOnly
-                className="w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-gray-600 outline-none"
+                type="datetime-local"
+                value={editEndAtText}
+                onChange={(e) => setEditEndAtText(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
 
               <textarea
@@ -1532,20 +1292,7 @@ export default function Home() {
                   type="number"
                   placeholder="시작가"
                   value={newPrice}
-                  onChange={(e) => {
-                    const nextPrice = e.target.value;
-                    setNewPrice(nextPrice);
-                    const numericPrice = Number(nextPrice);
-                    if (nextPrice.trim() && Number.isFinite(numericPrice) && numericPrice > 0) {
-                      const currentBuyNow = Number(newBuyNowPrice);
-                      const minBuyNow = numericPrice + 1000;
-                      if (!currentBuyNow || currentBuyNow < minBuyNow) {
-                        setNewBuyNowPrice(String(minBuyNow));
-                      }
-                    } else {
-                      setNewBuyNowPrice("");
-                    }
-                  }}
+                  onChange={(e) => setNewPrice(e.target.value)}
                   min={1000}
                   step={1000}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
@@ -1561,63 +1308,22 @@ export default function Home() {
                 />
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="즉시구매가 (시작가 + 1000)"
-                  value={newBuyNowPrice}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const numericValue = Number(value);
-                    if (value.trim() && Number.isFinite(numericValue)) {
-                      const normalizedBuyNow = Math.max(
-                        2000,
-                        Math.floor(numericValue / 1000) * 1000
-                      );
-                      const currentBuyNow = Number(newBuyNowPrice) || 2000;
-                      const currentBasePrice = Number(newPrice) || 1000;
-                      const isDecrease = normalizedBuyNow < currentBuyNow;
-                      const isLinked = currentBasePrice === currentBuyNow - 1000;
-                      setNewBuyNowPrice(String(normalizedBuyNow));
-                      if (isDecrease && isLinked) {
-                        setNewPrice(String(normalizedBuyNow - 1000));
-                      }
-                    } else {
-                      setNewBuyNowPrice(value);
-                    }
-                  }}
-                  min={2000}
-                  step={1000}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleDecreaseBuyNowPrice}
-                  disabled={Number(newBuyNowPrice) <= 2000}
-                  className="rounded-lg border border-gray-300 px-4 py-3 text-sm font-bold text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100"
-                >
-                  -1000
-                </button>
-                <button
-                  type="button"
-                  onClick={handleIncreaseBuyNowPrice}
-                  className="rounded-lg border border-gray-300 px-4 py-3 text-sm font-bold text-gray-700"
-                >
-                  +1000
-                </button>
-              </div>
-
-              <select
-                value={newEndDays}
-                onChange={(e) => setNewEndDays(e.target.value)}
+              <input
+                type="number"
+                placeholder="즉시구매가 (선택)"
+                value={newBuyNowPrice}
+                onChange={(e) => setNewBuyNowPrice(e.target.value)}
+                min={1000}
+                step={1000}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
-              >
-                {Array.from({ length: 30 }, (_, i) => i + 1).map((day) => (
-                  <option key={day} value={String(day)}>
-                    {day}일 뒤 마감
-                  </option>
-                ))}
-              </select>
+              />
+
+              <input
+                type="datetime-local"
+                value={newEndAtText}
+                onChange={(e) => setNewEndAtText(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
+              />
 
               <textarea
                 placeholder={"이미지 URL 입력 (한 줄에 하나씩)\nhttps://...\nhttps://..."}

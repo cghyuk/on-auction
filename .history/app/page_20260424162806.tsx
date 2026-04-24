@@ -41,11 +41,10 @@ type Product = {
   bidCount: number;
   likeCount: number;
   viewCount: number;
-  editCount?: number;
   createdAt?: number;
 };
 
-const EXPIRE_AFTER_END_MS = 7 * 24 * 60 * 60 * 1000;
+const EXPIRE_AFTER_END_MS = 1 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type BidLog = {
@@ -266,6 +265,7 @@ export default function Home() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -292,51 +292,49 @@ export default function Home() {
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      try {
-        setCurrentUser(user);
-        if (unsubscribeProfile) {
-          unsubscribeProfile();
-          unsubscribeProfile = undefined;
-        }
+      setCurrentUser(user);
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = undefined;
+      }
 
-        if (!user) {
-          setCurrentUserProfile(null);
-          return;
-        }
+      if (!user) {
+        setCurrentUserProfile(null);
+        setAuthLoading(false);
+        return;
+      }
 
-        const userRef = doc(db, "users", user.uid);
-        const now = Date.now();
-        const existingUserSnap = await getDoc(userRef);
-        if (!existingUserSnap.exists()) {
-          await setDoc(userRef, {
-            uid: user.uid,
+      const userRef = doc(db, "users", user.uid);
+      const now = Date.now();
+      const existingUserSnap = await getDoc(userRef);
+      if (!existingUserSnap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email ?? "",
+          displayName: user.displayName ?? "",
+          photoURL: user.photoURL ?? "",
+          phone: "",
+          point: 10000,
+          createdAt: now,
+          updatedAt: now,
+        } satisfies UserProfile);
+      } else {
+        await setDoc(
+          userRef,
+          {
             email: user.email ?? "",
             displayName: user.displayName ?? "",
             photoURL: user.photoURL ?? "",
-            phone: "",
-            point: 10000,
-            createdAt: now,
             updatedAt: now,
-          } satisfies UserProfile);
-        } else {
-          await setDoc(
-            userRef,
-            {
-              email: user.email ?? "",
-              displayName: user.displayName ?? "",
-              photoURL: user.photoURL ?? "",
-              updatedAt: now,
-            },
-            { merge: true }
-          );
-        }
-
-        unsubscribeProfile = onSnapshot(userRef, (snapshot) => {
-          setCurrentUserProfile((snapshot.data() as UserProfile | undefined) ?? null);
-        });
-      } catch (error) {
-        console.error("auth/profile sync error", error);
+          },
+          { merge: true }
+        );
       }
+
+      unsubscribeProfile = onSnapshot(userRef, (snapshot) => {
+        setCurrentUserProfile((snapshot.data() as UserProfile | undefined) ?? null);
+      });
+      setAuthLoading(false);
     });
 
     return () => {
@@ -388,7 +386,6 @@ export default function Home() {
                 ...raw,
                 endAt: endAtValue,
                 expireAt: expireAtValue,
-                editCount: raw.editCount ?? 0,
               };
             });
             loaded.sort((a, b) => {
@@ -526,7 +523,7 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error(error);
-      alert("구글 로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      alert("구글 로그인 중 문제가 발생했습니다.");
     }
   };
 
@@ -878,7 +875,6 @@ export default function Home() {
         bidCount: 0,
         likeCount: 0,
         viewCount: 0,
-        editCount: 0,
         createdAt: Date.now(),
       };
 
@@ -919,11 +915,6 @@ export default function Home() {
 
   const handleUpdateProduct = async () => {
     if (!selectedProduct || !currentUser || !isOwnProduct) return;
-    const currentEditCount = selectedProduct.editCount ?? 0;
-    if (currentEditCount >= 2) {
-      alert("상품 수정은 최대 2회까지 가능합니다.");
-      return;
-    }
     if (!editTitle.trim() || !editDesc.trim() || !editMinBid.trim()) {
       alert("상품명, 설명, 입찰단위는 필수입니다.");
       return;
@@ -950,7 +941,6 @@ export default function Home() {
         category: editCategory,
         minBid,
         images: imageList,
-        editCount: currentEditCount + 1,
       });
       closeEditModal();
       alert("상품 정보가 수정되었습니다.");
@@ -999,7 +989,9 @@ export default function Home() {
             상품등록
           </button>
 
-          {currentUser ? (
+          {authLoading ? (
+            <span className="text-gray-300">확인 중...</span>
+          ) : currentUser ? (
             <>
               <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
               <button
@@ -1213,8 +1205,7 @@ export default function Home() {
                 <div className="mb-4 flex gap-2">
                   <button
                     onClick={openEditModal}
-                    disabled={(selectedProduct.editCount ?? 0) >= 2}
-                    className="flex-1 rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    className="flex-1 rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600"
                   >
                     내 상품 수정
                   </button>
@@ -1224,11 +1215,6 @@ export default function Home() {
                   >
                     내 상품 삭제
                   </button>
-                </div>
-              )}
-              {isOwnProduct && (
-                <div className="mb-4 text-xs text-gray-500">
-                  수정 횟수: {selectedProduct.editCount ?? 0}/2
                 </div>
               )}
 
