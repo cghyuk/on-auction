@@ -999,6 +999,9 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
             <div className="flex items-center gap-4 text-sm lg:hidden">
+              <button className="min-h-11 hover:underline" onClick={openRegisterModal}>
+                상품등록
+              </button>
               <button className="min-h-11 hover:underline">이용안내</button>
               <button className="min-h-11 hover:underline">고객센터</button>
             </div>
@@ -1018,13 +1021,18 @@ export default function Home() {
         </div>
 
           <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <button className="min-h-11 hover:underline" onClick={openRegisterModal}>
+          <button className="hidden min-h-11 hover:underline lg:inline-flex" onClick={openRegisterModal}>
             상품등록
           </button>
 
           {currentUser ? (
             <>
-              <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
+                <button className="min-h-11 hover:underline" onClick={handleLogout}>
+                  로그아웃
+                </button>
+              </div>
               <button
                 className="min-h-11 text-xs text-gray-200 underline underline-offset-2 hover:text-white"
                 onClick={handleEditPhone}
@@ -1033,9 +1041,6 @@ export default function Home() {
                 {currentUserProfile?.phone
                   ? formatMaskedPhone(currentUserProfile.phone)
                   : "미등록(클릭하여 등록)"}
-              </button>
-              <button className="min-h-11 hover:underline" onClick={handleLogout}>
-                로그아웃
               </button>
             </>
           ) : (
