@@ -996,7 +996,13 @@ export default function Home() {
     <main className="min-h-screen bg-gray-100 text-gray-900">
       <header className="bg-slate-950 px-4 py-4 text-white sm:px-6">
         <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center">
-          <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
+          <div className="flex items-center justify-between">
+            <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
+            <div className="flex items-center gap-4 text-sm lg:hidden">
+              <button className="min-h-11 hover:underline">이용안내</button>
+              <button className="min-h-11 hover:underline">고객센터</button>
+            </div>
+          </div>
 
           <div className="mx-auto flex w-full max-w-[620px] items-center gap-2">
           <input
@@ -1038,8 +1044,8 @@ export default function Home() {
             </button>
           )}
 
-          <button className="min-h-11 hover:underline">이용안내</button>
-          <button className="min-h-11 hover:underline">고객센터</button>
+          <button className="hidden min-h-11 hover:underline lg:inline-flex">이용안내</button>
+          <button className="hidden min-h-11 hover:underline lg:inline-flex">고객센터</button>
         </nav>
         </div>
       </header>
