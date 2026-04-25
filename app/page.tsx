@@ -999,7 +999,10 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
             <div className="flex items-center gap-4 text-sm lg:hidden">
-              <button className="min-h-11 hover:underline" onClick={openRegisterModal}>
+              <button
+                className="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700"
+                onClick={openRegisterModal}
+              >
                 상품등록
               </button>
               <button className="min-h-11 hover:underline">이용안내</button>
@@ -1015,23 +1018,29 @@ export default function Home() {
             onChange={(e) => setSearch(e.target.value)}
             className="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-black outline-none"
           />
-          <button className="h-11 rounded-lg bg-blue-600 px-5 text-sm font-bold hover:bg-blue-700">
+          <button className="h-11 shrink-0 whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-bold hover:bg-blue-700">
             검색
           </button>
         </div>
 
           <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <button className="hidden min-h-11 hover:underline lg:inline-flex" onClick={openRegisterModal}>
+          <button
+            className="hidden min-h-11 items-center rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700 lg:inline-flex"
+            onClick={openRegisterModal}
+          >
             상품등록
           </button>
 
           {currentUser ? (
             <>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
-                <button className="min-h-11 hover:underline" onClick={handleLogout}>
+                <button
+                  className="inline-flex min-h-11 items-center rounded-lg bg-red-500 px-3 py-2 font-semibold text-white hover:bg-red-600"
+                  onClick={handleLogout}
+                >
                   로그아웃
                 </button>
+                <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
               </div>
               <button
                 className="min-h-11 text-xs text-gray-200 underline underline-offset-2 hover:text-white"
