@@ -994,24 +994,25 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
-      <header className="grid grid-cols-[auto_1fr_auto] items-center gap-4 bg-slate-950 px-6 py-4 text-white">
-        <div className="text-4xl font-bold tracking-tight">온경매</div>
+      <header className="bg-slate-950 px-4 py-4 text-white sm:px-6">
+        <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center">
+          <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
 
-        <div className="mx-auto flex w-full max-w-[620px] items-center gap-2">
+          <div className="mx-auto flex w-full max-w-[620px] items-center gap-2">
           <input
             type="text"
             placeholder="상품명 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-black outline-none"
+            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-black outline-none"
           />
-          <button className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-bold hover:bg-blue-700">
+          <button className="h-11 rounded-lg bg-blue-600 px-5 text-sm font-bold hover:bg-blue-700">
             검색
           </button>
         </div>
 
-        <nav className="flex items-center gap-5 text-sm">
-          <button className="hover:underline" onClick={openRegisterModal}>
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <button className="min-h-11 hover:underline" onClick={openRegisterModal}>
             상품등록
           </button>
 
@@ -1019,7 +1020,7 @@ export default function Home() {
             <>
               <span className="font-semibold">{getMaskedName(currentUser)} 님</span>
               <button
-                className="text-xs text-gray-200 underline underline-offset-2 hover:text-white"
+                className="min-h-11 text-xs text-gray-200 underline underline-offset-2 hover:text-white"
                 onClick={handleEditPhone}
               >
                 전화번호:{" "}
@@ -1027,33 +1028,34 @@ export default function Home() {
                   ? formatMaskedPhone(currentUserProfile.phone)
                   : "미등록(클릭하여 등록)"}
               </button>
-              <button className="hover:underline" onClick={handleLogout}>
+              <button className="min-h-11 hover:underline" onClick={handleLogout}>
                 로그아웃
               </button>
             </>
           ) : (
-            <button className="hover:underline" onClick={handleGoogleLogin}>
+            <button className="min-h-11 hover:underline" onClick={handleGoogleLogin}>
               구글 로그인
             </button>
           )}
 
-          <button className="hover:underline">이용안내</button>
-          <button className="hover:underline">고객센터</button>
+          <button className="min-h-11 hover:underline">이용안내</button>
+          <button className="min-h-11 hover:underline">고객센터</button>
         </nav>
+        </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1500px] grid-cols-[220px_1fr] gap-5 px-6 py-5">
+      <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:grid-cols-[220px_1fr] lg:gap-5">
         <aside className="h-fit rounded-2xl bg-white p-4 shadow-sm">
-          <h2 className="mb-4 text-3xl font-bold">카테고리</h2>
+          <h2 className="mb-3 text-2xl font-bold sm:mb-4 sm:text-3xl">카테고리</h2>
 
-          <ul className="space-y-2">
+          <ul className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
             {categories.map((category) => {
               const active = selectedCategory === category;
               return (
-                <li key={category}>
+                <li key={category} className="shrink-0 lg:shrink">
                   <button
                     onClick={() => setSelectedCategory(category)}
-                    className={`w-full rounded-xl px-4 py-3 text-left text-sm transition ${
+                    className={`w-full whitespace-nowrap rounded-xl px-4 py-3 text-left text-sm transition lg:whitespace-normal ${
                       active
                         ? "bg-blue-50 font-bold text-blue-700"
                         : "border border-gray-200 bg-white hover:bg-gray-50"
@@ -1067,16 +1069,16 @@ export default function Home() {
           </ul>
         </aside>
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center justify-between gap-3">
+        <section className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-bold">경매 상품</h2>
+              <h2 className="text-2xl font-bold sm:text-3xl">경매 상품</h2>
               <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-600">
                 {filteredProducts.length}개
               </span>
             </div>
 
-            <select className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            <select className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm sm:w-auto">
               <option>최신순</option>
               <option>낮은가격순</option>
               <option>높은가격순</option>
@@ -1093,7 +1095,7 @@ export default function Home() {
               등록된 상품이 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
               {filteredProducts.map((product) => (
                 <article
                   key={product.id}
@@ -1149,11 +1151,11 @@ export default function Home() {
 
       {selectedProduct && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 sm:items-center sm:p-5"
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="relative grid max-h-[92vh] w-full max-w-6xl grid-cols-1 overflow-hidden rounded-3xl bg-white shadow-2xl lg:grid-cols-[1.3fr_0.8fr]"
+            className="relative grid h-[92vh] w-full grid-cols-1 overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:h-auto sm:max-h-[92vh] sm:max-w-6xl sm:rounded-3xl lg:grid-cols-[1.3fr_0.8fr]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1163,12 +1165,12 @@ export default function Home() {
               ×
             </button>
 
-            <div className="bg-slate-950 p-5">
-              <div className="flex min-h-[420px] items-center justify-center rounded-2xl bg-slate-900 p-4">
+            <div className="bg-slate-950 p-4 sm:p-5">
+              <div className="flex min-h-[260px] items-center justify-center rounded-2xl bg-slate-900 p-3 sm:min-h-[420px] sm:p-4">
                 <img
                   src={selectedProduct.images[selectedImageIndex]}
                   alt={selectedProduct.title}
-                  className="max-h-[420px] w-auto max-w-full object-contain"
+                  className="max-h-[260px] w-auto max-w-full object-contain sm:max-h-[420px]"
                 />
               </div>
 
@@ -1179,7 +1181,7 @@ export default function Home() {
                     src={image}
                     alt={`${selectedProduct.title}-${index}`}
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`h-20 w-20 cursor-pointer rounded-xl border-2 object-cover ${
+                    className={`h-16 w-16 cursor-pointer rounded-xl border-2 object-cover sm:h-20 sm:w-20 ${
                       selectedImageIndex === index
                         ? "border-blue-500"
                         : "border-transparent"
@@ -1189,10 +1191,10 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="overflow-y-auto p-6">
-              <h3 className="mb-3 text-3xl font-bold">{selectedProduct.title}</h3>
+            <div className="overflow-y-auto p-4 sm:p-6">
+              <h3 className="mb-3 text-2xl font-bold sm:text-3xl">{selectedProduct.title}</h3>
 
-              <div className="mb-4 text-4xl font-extrabold">
+              <div className="mb-4 text-3xl font-extrabold sm:text-4xl">
                 {selectedProduct.price.toLocaleString()}원
               </div>
 
@@ -1226,7 +1228,7 @@ export default function Home() {
               </div>
 
               {isOwnProduct && (
-                <div className="mb-4 flex gap-2">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row">
                   <button
                     onClick={openEditModal}
                     disabled={(selectedProduct.editCount ?? 0) >= 2}
@@ -1376,7 +1378,7 @@ export default function Home() {
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gray-700 px-5 py-4 text-lg font-bold text-red-400">
@@ -1401,7 +1403,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
+            <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row">
               <button
                 onClick={handleFinalAgreeBid}
                 disabled={!warningChecked}
@@ -1431,7 +1433,7 @@ export default function Home() {
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl"
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-5 text-2xl font-bold">내 상품 수정</h3>
@@ -1487,7 +1489,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-5 flex gap-3">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={handleUpdateProduct}
                 disabled={editLoading}
@@ -1512,7 +1514,7 @@ export default function Home() {
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl"
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-5 text-2xl font-bold">상품 등록</h3>
@@ -1543,7 +1545,7 @@ export default function Home() {
                 ))}
               </select>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="number"
                   placeholder="시작가"
@@ -1577,7 +1579,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="number"
                   placeholder="즉시구매가 (시작가 + 1000)"
@@ -1643,7 +1645,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-5 flex gap-3">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={handleRegisterProduct}
                 disabled={registerLoading}
