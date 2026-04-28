@@ -78,7 +78,7 @@ const categories = [
   "디지털/가전",
   "패션의류/패션잡화",
   "가구/인테리어",
-  "아트/악기",
+  "자동차",
 ];
 
 const productCategories = [
@@ -86,7 +86,7 @@ const productCategories = [
   "디지털/가전",
   "패션의류/패션잡화",
   "가구/인테리어",
-  "아트/악기",
+  "자동차",
 ];
 
 const parseLegacyEndTextToMs = (endText: string) => {
@@ -231,7 +231,7 @@ const initialProducts: Product[] = [
     minBid: 3000,
     seller: "auto_house",
     sellerUid: "",
-    category: "아트/악기",
+    category: "자동차",
     endText: "종료 8시간 20분 전",
     highestBidder: "",
     bidCount: 4,
@@ -501,7 +501,6 @@ export default function Home() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      if (SAMPLE_PRODUCT_IDS.includes(product.id)) return false;
       if (product.expireAt && product.expireAt <= nowMs) return false;
       const categoryMatch =
         selectedCategory === "전체" || product.category === selectedCategory;
@@ -517,9 +516,7 @@ export default function Home() {
   }, [products, selectedCategory, search, nowMs]);
 
   const selectedProduct =
-    products.find(
-      (product) => product.id === selectedProductId && !SAMPLE_PRODUCT_IDS.includes(product.id)
-    ) ?? null;
+    products.find((product) => product.id === selectedProductId) ?? null;
   const selectedNextBidPrice = selectedProduct
     ? selectedProduct.price + selectedProduct.minBid
     : 0;

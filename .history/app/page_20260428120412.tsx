@@ -78,7 +78,7 @@ const categories = [
   "디지털/가전",
   "패션의류/패션잡화",
   "가구/인테리어",
-  "아트/악기",
+  "자동차",
 ];
 
 const productCategories = [
@@ -86,7 +86,7 @@ const productCategories = [
   "디지털/가전",
   "패션의류/패션잡화",
   "가구/인테리어",
-  "아트/악기",
+  "자동차",
 ];
 
 const parseLegacyEndTextToMs = (endText: string) => {
@@ -231,7 +231,7 @@ const initialProducts: Product[] = [
     minBid: 3000,
     seller: "auto_house",
     sellerUid: "",
-    category: "아트/악기",
+    category: "자동차",
     endText: "종료 8시간 20분 전",
     highestBidder: "",
     bidCount: 4,
