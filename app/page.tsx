@@ -25,24 +25,6 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 
-declare global {
-  interface Window {
-    TossPayments?: (clientKey: string) => {
-      requestPayment: (
-        method: string,
-        params: {
-          amount: number;
-          orderId: string;
-          orderName: string;
-          customerName?: string;
-          successUrl: string;
-          failUrl: string;
-        }
-      ) => Promise<void>;
-    };
-  }
-}
-
 type Product = {
   id: string;
   title: string;
@@ -88,18 +70,6 @@ type UserProfile = {
   point: number;
   createdAt: number;
   updatedAt: number;
-};
-
-const loadTossPaymentsScript = async () => {
-  if (window.TossPayments) return;
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://js.tosspayments.com/v1/payment";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("토스페이먼츠 스크립트를 불러오지 못했습니다."));
-    document.head.appendChild(script);
-  });
 };
 
 const categories = [
@@ -321,7 +291,6 @@ export default function Home() {
   const [editMinBid, setEditMinBid] = useState("500");
   const [editEndDays, setEditEndDays] = useState("1");
   const [editImagesText, setEditImagesText] = useState("");
-  const [buyNowLoading, setBuyNowLoading] = useState(false);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
@@ -1036,66 +1005,6 @@ export default function Home() {
     }
   };
 
-  const handleBuyNowPayment = async () => {
-    if (!selectedProduct || !currentUser) {
-      alert("로그인 후 이용 가능합니다.");
-      return;
-    }
-    if (!(await ensurePhoneProfile("즉시구매"))) return;
-    if (isOwnProduct) {
-      alert("본인 상품은 결제할 수 없습니다.");
-      return;
-    }
-    if (isAuctionClosed) {
-      alert("마감된 상품은 결제할 수 없습니다.");
-      return;
-    }
-    if (!selectedProduct.buyNowPrice) {
-      alert("즉시구매가가 없는 상품입니다.");
-      return;
-    }
-
-    const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
-    if (!tossClientKey) {
-      alert("NEXT_PUBLIC_TOSS_CLIENT_KEY 환경변수를 설정해주세요.");
-      return;
-    }
-
-    setBuyNowLoading(true);
-    try {
-      const createOrder = httpsCallable(functions, "createOrder");
-      const createOrderResult = await createOrder({ productId: selectedProduct.id });
-      const order = createOrderResult.data as {
-        orderId: string;
-        amount: number;
-        orderName: string;
-      };
-
-      await loadTossPaymentsScript();
-      if (!window.TossPayments) {
-        throw new Error("토스페이먼츠 스크립트 초기화에 실패했습니다.");
-      }
-
-      const tossPayments = window.TossPayments(tossClientKey);
-      const baseUrl = window.location.origin;
-      await tossPayments.requestPayment("카드", {
-        amount: order.amount,
-        orderId: order.orderId,
-        orderName: order.orderName,
-        customerName: getMaskedName(currentUser),
-        successUrl: `${baseUrl}/payment/success`,
-        failUrl: `${baseUrl}/payment/fail`,
-      });
-    } catch (error) {
-      console.error(error);
-      alert(
-        error instanceof Error ? error.message : "결제 요청 중 문제가 발생했습니다."
-      );
-    } finally {
-      setBuyNowLoading(false);
-    }
-  };
-
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
       <header className="bg-slate-950 px-4 py-4 text-white sm:px-6">
@@ -1395,22 +1304,6 @@ export default function Home() {
                 )}
 
                 <div className="space-y-3">
-                  {selectedProduct.buyNowPrice ? (
-                    <button
-                      onClick={handleBuyNowPayment}
-                      disabled={isOwnProduct || isAuctionClosed || buyNowLoading}
-                      className={`w-full rounded-lg px-4 py-3 text-sm font-bold text-white ${
-                        isOwnProduct || isAuctionClosed || buyNowLoading
-                          ? "cursor-not-allowed bg-gray-400"
-                          : "bg-purple-600 hover:bg-purple-700"
-                      }`}
-                    >
-                      {buyNowLoading
-                        ? "결제창 준비 중..."
-                        : `즉시구매 결제 (${selectedProduct.buyNowPrice.toLocaleString()}원)`}
-                    </button>
-                  ) : null}
-
                   <label className="flex cursor-pointer items-center gap-2 text-sm">
                     <input
                       type="radio"
