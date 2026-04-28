@@ -21,12 +21,12 @@ npm run dev
 - 실시간 입찰 및 입찰 로그 저장
 - 즉시구매가 연동 로직
 - 마감 카운트다운/마감 후 입찰 차단
-- 경매 종료 후 7일 보관, 이후 자동 삭제(Cloud Functions Scheduler)
+- 경매 종료 후 5분 보관(테스트용), 이후 자동 삭제(Cloud Functions Scheduler)
 
-## 경매 종료 후 7일 자동삭제
+## 경매 종료 후 5분 자동삭제 (테스트용)
 
 `products` 문서에 `expireAt`(밀리초 타임스탬프)을 저장하고, 만료된 상품은 화면에서 숨깁니다.
-서버 스케줄러가 매일 실행되어 만료 상품과 하위 `bids` 로그를 삭제합니다.
+서버 스케줄러가 1분마다 실행되어 만료 상품과 하위 `bids` 로그를 삭제합니다.
 
 ### 1) Functions 의존성 설치
 
@@ -56,7 +56,7 @@ npx firebase deploy --only firestore:rules,firestore:indexes
 ### 4) 동작 확인
 
 - 스케줄 함수: `cleanupExpiredProducts`
-- 주기: 매일 03:00 (`Asia/Seoul`)
+- 주기: 매분 (`Asia/Seoul`)
 - 대상: `expireAt <= now` 인 상품
 
 ## 참고

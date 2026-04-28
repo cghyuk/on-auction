@@ -47,7 +47,7 @@ type Product = {
   createdAt?: number;
 };
 
-const EXPIRE_AFTER_END_MS = 7 * 24 * 60 * 60 * 1000;
+const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type BidLog = {
@@ -245,6 +245,7 @@ const initialProducts: Product[] = [
     ],
   },
 ];
+const SAMPLE_PRODUCT_IDS = initialProducts.map((product) => product.id);
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("전체");
@@ -351,23 +352,7 @@ export default function Home() {
     const setupProductsAndSubscribe = async () => {
       try {
         const colRef = collection(db, "products");
-        const snap = await getDocs(colRef);
-
-        if (snap.empty) {
-          // 데모 데이터 시딩은 선택 동작으로 유지: 권한이 없으면 무시하고 빈 목록으로 시작
-          try {
-            for (const product of initialProducts) {
-              const endAt = product.endAt ?? parseLegacyEndTextToMs(product.endText);
-              await setDoc(doc(db, "products", product.id), {
-                ...product,
-                endAt,
-                expireAt: endAt + EXPIRE_AFTER_END_MS,
-              });
-            }
-          } catch (seedError) {
-            console.warn("initial products seed skipped", seedError);
-          }
-        }
+        await getDocs(colRef);
 
         const unsubscribe = onSnapshot(
           colRef,
@@ -433,6 +418,28 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!currentUser) return;
+
+    const cleanupSampleProducts = async () => {
+      try {
+        for (const sampleId of SAMPLE_PRODUCT_IDS) {
+          const ref = doc(db, "products", sampleId);
+          const snap = await getDoc(ref);
+          if (!snap.exists()) continue;
+          const data = snap.data() as Partial<Product>;
+          // 기본 샘플 형태(판매자 uid 없음)만 지워서 실제 상품을 건드리지 않도록 보호
+          if (data.sellerUid) continue;
+          await deleteDoc(ref);
+        }
+      } catch (error) {
+        console.warn("sample products cleanup skipped", error);
+      }
+    };
+
+    cleanupSampleProducts();
+  }, [currentUser]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setNowMs(Date.now());
     }, 1000);
@@ -494,6 +501,7 @@ export default function Home() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      if (SAMPLE_PRODUCT_IDS.includes(product.id)) return false;
       if (product.expireAt && product.expireAt <= nowMs) return false;
       const categoryMatch =
         selectedCategory === "전체" || product.category === selectedCategory;
@@ -509,7 +517,9 @@ export default function Home() {
   }, [products, selectedCategory, search, nowMs]);
 
   const selectedProduct =
-    products.find((product) => product.id === selectedProductId) ?? null;
+    products.find(
+      (product) => product.id === selectedProductId && !SAMPLE_PRODUCT_IDS.includes(product.id)
+    ) ?? null;
   const selectedNextBidPrice = selectedProduct
     ? selectedProduct.price + selectedProduct.minBid
     : 0;

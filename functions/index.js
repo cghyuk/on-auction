@@ -8,6 +8,7 @@ admin.initializeApp();
 const db = admin.firestore();
 const REGISTER_FEE_POINT = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
 
 function getMaskedNameFromEmail(email) {
   if (!email || typeof email !== "string") return "회원";
@@ -71,7 +72,7 @@ exports.createProductWithFee = onCall(
     const email = request.auth.token.email || "";
     const now = Date.now();
     const endAt = now + endDays * DAY_MS;
-    const expireAt = endAt + 7 * DAY_MS;
+    const expireAt = endAt + EXPIRE_AFTER_END_MS;
     const userRef = db.collection("users").doc(uid);
     const productRef = db.collection("products").doc();
 
@@ -135,7 +136,7 @@ exports.createProductWithFee = onCall(
 
 exports.cleanupExpiredProducts = onSchedule(
   {
-    schedule: "every day 03:00",
+    schedule: "* * * * *",
     timeZone: "Asia/Seoul",
     region: "asia-northeast3",
   },
