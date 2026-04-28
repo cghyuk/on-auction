@@ -954,10 +954,6 @@ export default function Home() {
     }
   };
 
-  const handleRemoveNewImageFile = (targetIndex: number) => {
-    setNewImageFiles((prev) => prev.filter((_, index) => index !== targetIndex));
-  };
-
   const openEditModal = () => {
     if (!selectedProduct || !isOwnProduct) return;
     setEditTitle(selectedProduct.title);
@@ -1726,23 +1722,12 @@ export default function Home() {
                 {newImagePreviewUrls.length > 0 ? (
                   <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {newImagePreviewUrls.map((previewUrl, index) => (
-                      <div
-                        key={`${previewUrl}-${index}`}
-                        className="relative overflow-hidden rounded-lg border"
-                      >
+                      <div key={`${previewUrl}-${index}`} className="overflow-hidden rounded-lg border">
                         <img
                           src={previewUrl}
                           alt={`업로드 미리보기 ${index + 1}`}
                           className="h-20 w-full object-cover"
                         />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNewImageFile(index)}
-                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs font-bold text-white hover:bg-black"
-                          aria-label={`미리보기 ${index + 1} 삭제`}
-                        >
-                          ×
-                        </button>
                       </div>
                     ))}
                   </div>
