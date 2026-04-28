@@ -6,7 +6,6 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket();
 const REGISTER_FEE_POINT = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
@@ -21,30 +20,6 @@ function getMaskedNameFromEmail(email) {
 
 function asTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function getStoragePathFromDownloadUrl(downloadUrl) {
-  const url = asTrimmedString(downloadUrl);
-  if (!url.includes("firebasestorage.googleapis.com")) return null;
-  const marker = "/o/";
-  const markerIndex = url.indexOf(marker);
-  if (markerIndex < 0) return null;
-  const encodedPath = url.slice(markerIndex + marker.length).split("?")[0];
-  if (!encodedPath) return null;
-  return decodeURIComponent(encodedPath);
-}
-
-async function deleteProductImagesByUrls(urls) {
-  const normalized = Array.isArray(urls) ? urls : [];
-  for (const rawUrl of normalized) {
-    try {
-      const path = getStoragePathFromDownloadUrl(rawUrl);
-      if (!path) continue;
-      await bucket.file(path).delete({ ignoreNotFound: true });
-    } catch (error) {
-      logger.warn("Failed to delete storage object for product", { rawUrl, error });
-    }
-  }
 }
 
 exports.createProductWithFee = onCall(
@@ -186,12 +161,6 @@ exports.cleanupExpiredProducts = onSchedule(
     }
 
     for (const productDoc of expiredSnap.docs) {
-      const productData = productDoc.data() || {};
-      await deleteProductImagesByUrls([
-        ...(productData.images || []),
-        ...(productData.thumbnailImages || []),
-      ]);
-
       const bidsSnap = await productDoc.ref.collection("bids").get();
       if (!bidsSnap.empty) {
         const bidBatch = db.batch();

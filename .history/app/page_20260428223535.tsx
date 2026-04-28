@@ -24,7 +24,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 type Product = {
   id: string;
@@ -1167,19 +1167,6 @@ export default function Home() {
     const ok = window.confirm("정말 이 상품을 삭제할까요? 삭제 후 복구할 수 없습니다.");
     if (!ok) return;
     try {
-      const urlsToDelete = [
-        ...(selectedProduct.images || []),
-        ...(selectedProduct.thumbnailImages || []),
-      ];
-      for (const url of urlsToDelete) {
-        try {
-          // Storage 다운로드 URL을 직접 참조로 변환해 삭제
-          await deleteObject(ref(storage, url));
-        } catch (imageDeleteError) {
-          // 외부 이미지 URL이거나 이미 삭제된 경우는 무시하고 문서 삭제는 계속 진행
-          console.warn("image delete skipped", imageDeleteError);
-        }
-      }
       await deleteDoc(doc(db, "products", selectedProduct.id));
       closeModal();
       alert("상품이 삭제되었습니다.");
