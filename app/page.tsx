@@ -714,6 +714,32 @@ export default function Home() {
     setSelectedImageDragStart(null);
   };
 
+  const clampZoom = (zoom: number) => Math.max(1, Math.min(4, zoom));
+
+  const handleSelectedImageZoomIn = () => {
+    setSelectedImageZoom((prev) => clampZoom(prev + 0.25));
+  };
+
+  const handleSelectedImageZoomOut = () => {
+    setSelectedImageZoom((prev) => {
+      const next = clampZoom(prev - 0.25);
+      if (next === 1) {
+        setSelectedImageOffset({ x: 0, y: 0 });
+        setSelectedImageDragging(false);
+        setSelectedImageDragStart(null);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectedImageDoubleClick = () => {
+    if (selectedImageZoom === 1) {
+      setSelectedImageZoom(2);
+      return;
+    }
+    resetSelectedImageView();
+  };
+
   useEffect(() => {
     if (!selectedProductId) return;
     resetSelectedImageView();
@@ -1457,6 +1483,7 @@ export default function Home() {
                 onMouseMove={handleSelectedImageMouseMove}
                 onMouseUp={handleSelectedImageMouseUp}
                 onMouseLeave={handleSelectedImageMouseUp}
+                onDoubleClick={handleSelectedImageDoubleClick}
               >
                 <img
                   src={selectedProduct.images[selectedImageIndex]}
@@ -1468,6 +1495,32 @@ export default function Home() {
                   }}
                   className="max-h-[260px] w-auto max-w-full select-none object-contain sm:max-h-[420px]"
                 />
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={handleSelectedImageZoomOut}
+                  className="rounded-md border border-slate-600 px-3 py-1.5 font-semibold text-white hover:bg-slate-800"
+                >
+                  -
+                </button>
+                <div className="min-w-14 text-center font-semibold text-slate-200">
+                  {(selectedImageZoom * 100).toFixed(0)}%
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSelectedImageZoomIn}
+                  className="rounded-md border border-slate-600 px-3 py-1.5 font-semibold text-white hover:bg-slate-800"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={resetSelectedImageView}
+                  className="rounded-md border border-slate-600 px-3 py-1.5 font-semibold text-white hover:bg-slate-800"
+                >
+                  Reset
+                </button>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
