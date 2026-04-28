@@ -1663,7 +1663,7 @@ export default function Home() {
                 onChange={(e) => setNewEndDays(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               >
-                {Array.from({ length: 30 }, (_, i) => i + 1).map((day) => (
+                {[1, 3, 5, 7].map((day) => (
                   <option key={day} value={String(day)}>
                     {day}일 뒤 마감
                   </option>
