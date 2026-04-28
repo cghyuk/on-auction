@@ -52,11 +52,13 @@ type Product = {
 const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_PRODUCT_IMAGES = 5;
-const MAX_UPLOAD_IMAGE_BYTES = 1 * 1024 * 1024;
+const MAX_ORIGINAL_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_COMPRESSED_IMAGE_BYTES = 1 * 1024 * 1024;
 const FILE_UPLOAD_TIMEOUT_MS = 60 * 1000;
-const MAX_IMAGE_WIDTH = 1600;
-const MAX_THUMBNAIL_WIDTH = 320;
+const MAX_IMAGE_LONG_EDGE = 1200;
+const MAX_THUMBNAIL_LONG_EDGE = 400;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 
 type BidLog = {
   id: string;
@@ -120,27 +122,44 @@ const readImageFile = (file: File) =>
     image.src = objectUrl;
   });
 
-const canvasToJpegBlob = (
+const canvasToCompressedBlob = (
   canvas: HTMLCanvasElement,
-  quality: number
+  quality: number,
+  preferredType: "image/webp" | "image/jpeg"
 ) =>
   new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error("이미지 변환에 실패했습니다."));
+          canvas.toBlob(
+            (fallbackBlob) => {
+              if (!fallbackBlob) {
+                reject(new Error("이미지 변환에 실패했습니다."));
+                return;
+              }
+              resolve(fallbackBlob);
+            },
+            "image/jpeg",
+            quality
+          );
           return;
         }
         resolve(blob);
       },
-      "image/jpeg",
+      preferredType,
       quality
     );
   });
 
-const resizeImageToJpeg = async (file: File, maxWidth: number, quality: number) => {
+const resizeImageToCompressedBlob = async (
+  file: File,
+  maxLongEdge: number,
+  quality: number,
+  preferredType: "image/webp" | "image/jpeg"
+) => {
   const image = await readImageFile(file);
-  const ratio = Math.min(1, maxWidth / image.width);
+  const longEdge = Math.max(image.width, image.height);
+  const ratio = Math.min(1, maxLongEdge / longEdge);
   const width = Math.max(1, Math.round(image.width * ratio));
   const height = Math.max(1, Math.round(image.height * ratio));
   const canvas = document.createElement("canvas");
@@ -151,7 +170,7 @@ const resizeImageToJpeg = async (file: File, maxWidth: number, quality: number) 
     throw new Error("이미지 처리 컨텍스트를 생성할 수 없습니다.");
   }
   context.drawImage(image, 0, 0, width, height);
-  return canvasToJpegBlob(canvas, quality);
+  return canvasToCompressedBlob(canvas, quality, preferredType);
 };
 
 const formatCountdown = (
@@ -1059,19 +1078,26 @@ export default function Home() {
       alert("이미지 URL 또는 PC 이미지 파일을 최소 1개 등록해주세요.");
       return;
     }
-    const invalidTypeFile = newImageFiles.find(
-      (file) => !ALLOWED_IMAGE_TYPES.includes(file.type)
-    );
-    if (invalidTypeFile) {
+    const invalidFile = newImageFiles.find((file) => {
+      const lowerName = file.name.toLowerCase();
+      const hasAllowedExtension = ALLOWED_IMAGE_EXTENSIONS.some((ext) =>
+        lowerName.endsWith(ext)
+      );
+      const hasAllowedMimeType = ALLOWED_IMAGE_TYPES.includes(file.type);
+      return !hasAllowedExtension || !hasAllowedMimeType;
+    });
+    if (invalidFile) {
       alert(
-        `지원하지 않는 이미지 형식입니다.\n허용 형식: JPG, PNG, WEBP\n대상: ${invalidTypeFile.name}`
+        `지원하지 않는 이미지 형식입니다.\n허용 형식: JPG, PNG, WEBP\n대상: ${invalidFile.name}`
       );
       return;
     }
-    const tooLargeFile = newImageFiles.find((file) => file.size > MAX_UPLOAD_IMAGE_BYTES);
+    const tooLargeFile = newImageFiles.find(
+      (file) => file.size > MAX_ORIGINAL_IMAGE_BYTES
+    );
     if (tooLargeFile) {
       alert(
-        `이미지 용량이 너무 큽니다. (최대 1MB)\n대상: ${tooLargeFile.name}`
+        `원본 이미지 용량이 너무 큽니다. (최대 10MB)\n대상: ${tooLargeFile.name}`
       );
       return;
     }
@@ -1099,8 +1125,29 @@ export default function Home() {
           .toString(36)
           .slice(2)}-${safeName}`;
 
-        const compressedBlob = await resizeImageToJpeg(file, MAX_IMAGE_WIDTH, 0.82);
-        const thumbnailBlob = await resizeImageToJpeg(file, MAX_THUMBNAIL_WIDTH, 0.72);
+        const compressedBlob = await resizeImageToCompressedBlob(
+          file,
+          MAX_IMAGE_LONG_EDGE,
+          0.82,
+          "image/webp"
+        );
+        if (compressedBlob.size > MAX_COMPRESSED_IMAGE_BYTES) {
+          throw new Error(
+            `압축 후 이미지 용량이 1MB를 초과합니다: ${file.name}`
+          );
+        }
+
+        const thumbnailBlob = await resizeImageToCompressedBlob(
+          file,
+          MAX_THUMBNAIL_LONG_EDGE,
+          0.72,
+          "image/webp"
+        );
+        if (thumbnailBlob.size > MAX_COMPRESSED_IMAGE_BYTES) {
+          throw new Error(
+            `압축 후 썸네일 용량이 1MB를 초과합니다: ${file.name}`
+          );
+        }
 
         const storageRef = ref(storage, `products/${currentUser.uid}/${unique}`);
         const thumbnailRef = ref(
@@ -1108,7 +1155,7 @@ export default function Home() {
           `products/${currentUser.uid}/thumb-${unique}`
         );
         await Promise.race([
-          uploadBytes(storageRef, compressedBlob, { contentType: "image/jpeg" }),
+          uploadBytes(storageRef, compressedBlob, { contentType: compressedBlob.type }),
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new Error(`이미지 업로드 시간 초과: ${file.name}`)),
@@ -1117,7 +1164,7 @@ export default function Home() {
           ),
         ]);
         await Promise.race([
-          uploadBytes(thumbnailRef, thumbnailBlob, { contentType: "image/jpeg" }),
+          uploadBytes(thumbnailRef, thumbnailBlob, { contentType: thumbnailBlob.type }),
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new Error(`썸네일 업로드 시간 초과: ${file.name}`)),
