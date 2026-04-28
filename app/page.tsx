@@ -51,10 +51,12 @@ type Product = {
 
 const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_UPLOAD_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_PRODUCT_IMAGES = 5;
+const MAX_UPLOAD_IMAGE_BYTES = 1 * 1024 * 1024;
 const FILE_UPLOAD_TIMEOUT_MS = 60 * 1000;
 const MAX_IMAGE_WIDTH = 1600;
 const MAX_THUMBNAIL_WIDTH = 320;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 type BidLog = {
   id: string;
@@ -1049,16 +1051,41 @@ export default function Home() {
       .map((v) => v.trim())
       .filter(Boolean);
 
+    if (imageUrlList.length + newImageFiles.length > MAX_PRODUCT_IMAGES) {
+      alert(`상품 이미지는 최대 ${MAX_PRODUCT_IMAGES}장까지 등록할 수 있습니다.`);
+      return;
+    }
     if (imageUrlList.length === 0 && newImageFiles.length === 0) {
       alert("이미지 URL 또는 PC 이미지 파일을 최소 1개 등록해주세요.");
+      return;
+    }
+    const invalidTypeFile = newImageFiles.find(
+      (file) => !ALLOWED_IMAGE_TYPES.includes(file.type)
+    );
+    if (invalidTypeFile) {
+      alert(
+        `지원하지 않는 이미지 형식입니다.\n허용 형식: JPG, PNG, WEBP\n대상: ${invalidTypeFile.name}`
+      );
       return;
     }
     const tooLargeFile = newImageFiles.find((file) => file.size > MAX_UPLOAD_IMAGE_BYTES);
     if (tooLargeFile) {
       alert(
-        `이미지 용량이 너무 큽니다. (최대 10MB)\n대상: ${tooLargeFile.name}`
+        `이미지 용량이 너무 큽니다. (최대 1MB)\n대상: ${tooLargeFile.name}`
       );
       return;
+    }
+
+    if (newImageFiles.length > 0) {
+      const uploadsEnabledSnap = await getDoc(doc(db, "settings", "app"));
+      const uploadsEnabledRaw = uploadsEnabledSnap.exists()
+        ? uploadsEnabledSnap.data()?.uploadsEnabled
+        : true;
+      const uploadsEnabled = uploadsEnabledRaw !== false;
+      if (!uploadsEnabled) {
+        alert("관리자 설정으로 현재 이미지 업로드가 일시 중지되어 있습니다.");
+        return;
+      }
     }
 
     setRegisterLoading(true);
@@ -1406,11 +1433,17 @@ export default function Home() {
                   onClick={() => openModal(product.id)}
                   className="cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"
                 >
-                  <img
-                    src={product.thumbnailImages?.[0] || product.images[0]}
-                    alt={product.title}
-                    className="aspect-square w-full object-cover"
-                  />
+                  {product.thumbnailImages?.[0] ? (
+                    <img
+                      src={product.thumbnailImages[0]}
+                      alt={product.title}
+                      className="aspect-square w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-square w-full items-center justify-center bg-gray-200 text-xs text-gray-500">
+                      썸네일 없음
+                    </div>
+                  )}
                   <div className="space-y-2 p-4">
                     <h3 className="min-h-[44px] text-base font-bold leading-6">
                       {product.title}

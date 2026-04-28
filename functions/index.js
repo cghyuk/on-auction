@@ -10,6 +10,7 @@ const bucket = admin.storage().bucket();
 const REGISTER_FEE_POINT = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
+const MAX_PRODUCT_IMAGES = 5;
 
 function getMaskedNameFromEmail(email) {
   if (!email || typeof email !== "string") return "회원";
@@ -97,6 +98,18 @@ exports.createProductWithFee = onCall(
     }
     if (images.length === 0) {
       throw new HttpsError("invalid-argument", "이미지는 최소 1개 이상 필요합니다.");
+    }
+    if (images.length > MAX_PRODUCT_IMAGES) {
+      throw new HttpsError(
+        "invalid-argument",
+        `상품 이미지는 최대 ${MAX_PRODUCT_IMAGES}개까지 등록할 수 있습니다.`
+      );
+    }
+    if (thumbnailImages.length > 0 && thumbnailImages.length !== images.length) {
+      throw new HttpsError(
+        "invalid-argument",
+        "썸네일 이미지 수가 원본 이미지 수와 일치해야 합니다."
+      );
     }
 
     const uid = request.auth.uid;

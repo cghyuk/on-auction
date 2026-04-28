@@ -25,5 +25,10 @@ service cloud.firestore {
       allow read, create, update: if isOwner(uid);
       allow delete: if false;
     }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }
