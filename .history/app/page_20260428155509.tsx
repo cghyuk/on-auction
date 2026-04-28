@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { auth, provider, db, functions, storage } from "../lib/firebase";
+import { auth, provider, db, functions } from "../lib/firebase";
 import { FirebaseError } from "firebase/app";
 import {
   onAuthStateChanged,
@@ -24,7 +24,6 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 type Product = {
   id: string;
@@ -281,7 +280,6 @@ export default function Home() {
   const [newBuyNowPrice, setNewBuyNowPrice] = useState("2000");
   const [newEndDays, setNewEndDays] = useState("1");
   const [newImagesText, setNewImagesText] = useState("");
-  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [bidLogs, setBidLogs] = useState<BidLog[]>([]);
   const [nowMs, setNowMs] = useState(0);
 
@@ -816,7 +814,6 @@ export default function Home() {
     setNewBuyNowPrice("2000");
     setNewEndDays("1");
     setNewImagesText("");
-    setNewImageFiles([]);
   };
 
   const syncFromBuyNowPrice = (nextBuyNowPrice: number, shouldLowerBasePrice: boolean) => {
@@ -887,32 +884,19 @@ export default function Home() {
       return;
     }
 
-    const imageUrlList = newImagesText
+    const imageList = newImagesText
       .split("\n")
       .map((v) => v.trim())
       .filter(Boolean);
 
-    if (imageUrlList.length === 0 && newImageFiles.length === 0) {
-      alert("이미지 URL 또는 PC 이미지 파일을 최소 1개 등록해주세요.");
+    if (imageList.length === 0) {
+      alert("이미지 URL을 최소 1개 입력해주세요.");
       return;
     }
 
     setRegisterLoading(true);
 
     try {
-      const uploadedImageUrls: string[] = [];
-      for (const file of newImageFiles) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `products/${currentUser.uid}/${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}-${safeName}`;
-        const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedImageUrls.push(url);
-      }
-
-      const imageList = [...uploadedImageUrls, ...imageUrlList];
       const createProductWithFee = httpsCallable(functions, "createProductWithFee");
       await createProductWithFee({
         title: newTitle.trim(),
@@ -1679,7 +1663,7 @@ export default function Home() {
                 onChange={(e) => setNewEndDays(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               >
-                {[1, 3, 5, 7].map((day) => (
+                {Array.from({ length: 30 }, (_, i) => i + 1).map((day) => (
                   <option key={day} value={String(day)}>
                     {day}일 뒤 마감
                   </option>
@@ -1692,23 +1676,6 @@ export default function Home() {
                 onChange={(e) => setNewImagesText(e.target.value)}
                 className="h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="mb-2 text-xs font-semibold text-gray-700">
-                  또는 PC 이미지 업로드
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => setNewImageFiles(Array.from(e.target.files ?? []))}
-                  className="w-full text-sm"
-                />
-                {newImageFiles.length > 0 ? (
-                  <div className="mt-2 text-xs text-gray-600">
-                    선택됨: {newImageFiles.map((file) => file.name).join(", ")}
-                  </div>
-                ) : null}
-              </div>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
