@@ -9,7 +9,6 @@ const db = admin.firestore();
 const REGISTER_FEE_POINT = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
-const ORDER_PENDING_EXPIRE_MS = 15 * 60 * 1000;
 
 function getMaskedNameFromEmail(email) {
   if (!email || typeof email !== "string") return "회원";
@@ -53,16 +52,12 @@ exports.createOrder = onCall({ region: "asia-northeast3" }, async (request) => {
   const product = productSnap.data() || {};
   const buyNowPrice = Number(product.buyNowPrice || 0);
   const endAt = Number(product.endAt || 0);
-  const soldAt = Number(product.soldAt || 0);
 
   if (!buyNowPrice || buyNowPrice < 1000) {
     throw new HttpsError("failed-precondition", "즉시구매가가 없는 상품입니다.");
   }
   if (endAt && endAt <= Date.now()) {
     throw new HttpsError("failed-precondition", "이미 마감된 상품입니다.");
-  }
-  if (soldAt > 0) {
-    throw new HttpsError("failed-precondition", "이미 판매 완료된 상품입니다.");
   }
   if (product.sellerUid && product.sellerUid === request.auth.uid) {
     throw new HttpsError("failed-precondition", "본인 상품은 결제할 수 없습니다.");
@@ -79,7 +74,6 @@ exports.createOrder = onCall({ region: "asia-northeast3" }, async (request) => {
     amount: buyNowPrice,
     orderName,
     status: "pending",
-    expiresAt: now + ORDER_PENDING_EXPIRE_MS,
     createdAt: now,
     updatedAt: now,
   });
@@ -168,21 +162,6 @@ exports.confirmPayment = onCall({ region: "asia-northeast3" }, async (request) =
     if (Number(freshOrder.amount) !== amount) {
       throw new HttpsError("failed-precondition", "결제 금액 검증에 실패했습니다.");
     }
-    if (freshOrder.status !== "pending") {
-      throw new HttpsError("failed-precondition", "결제 가능한 주문 상태가 아닙니다.");
-    }
-
-    const productRef = db.collection("products").doc(asTrimmedString(freshOrder.productId));
-    const productSnap = await tx.get(productRef);
-    if (!productSnap.exists) {
-      throw new HttpsError("not-found", "상품이 존재하지 않습니다.");
-    }
-    const product = productSnap.data() || {};
-    const productSoldAt = Number(product.soldAt || 0);
-    const productEndAt = Number(product.endAt || 0);
-    if (productSoldAt > 0 || (productEndAt && productEndAt <= Date.now())) {
-      throw new HttpsError("failed-precondition", "이미 판매 또는 마감된 상품입니다.");
-    }
 
     tx.set(
       orderRef,
@@ -192,19 +171,6 @@ exports.confirmPayment = onCall({ region: "asia-northeast3" }, async (request) =
         method: asTrimmedString(tossData.method),
         approvedAt: asTrimmedString(tossData.approvedAt),
         updatedAt: now,
-      },
-      { merge: true }
-    );
-
-    tx.set(
-      productRef,
-      {
-        soldAt: now,
-        soldToUid: request.auth.uid,
-        soldByPaymentKey: paymentKey,
-        highestBidder: `${getMaskedNameFromEmail(request.auth.token.email || "")}(즉시구매)`,
-        endAt: now,
-        expireAt: now + EXPIRE_AFTER_END_MS,
       },
       { merge: true }
     );
@@ -228,46 +194,6 @@ exports.confirmPayment = onCall({ region: "asia-northeast3" }, async (request) =
     approvedAt: asTrimmedString(tossData.approvedAt),
   };
 });
-
-exports.cleanupExpiredPendingOrders = onSchedule(
-  {
-    schedule: "*/5 * * * *",
-    timeZone: "Asia/Seoul",
-    region: "asia-northeast3",
-  },
-  async () => {
-    const now = Date.now();
-    const pendingSnap = await db
-      .collection("orders")
-      .where("status", "==", "pending")
-      .where("expiresAt", "<=", now)
-      .limit(200)
-      .get();
-
-    if (pendingSnap.empty) {
-      logger.info("No expired pending orders to cancel.");
-      return;
-    }
-
-    const batch = db.batch();
-    pendingSnap.docs.forEach((orderDoc) => {
-      batch.set(
-        orderDoc.ref,
-        {
-          status: "cancelled",
-          cancelReason: "pending_timeout",
-          updatedAt: now,
-        },
-        { merge: true }
-      );
-    });
-    await batch.commit();
-
-    logger.info("Expired pending orders cleanup completed.", {
-      cancelledOrders: pendingSnap.size,
-    });
-  }
-);
 
 exports.createProductWithFee = onCall(
   { region: "asia-northeast3" },
