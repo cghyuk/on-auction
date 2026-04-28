@@ -997,6 +997,13 @@ export default function Home() {
     };
   }, [newImageFiles]);
 
+  const newImageUrlCount = newImagesText
+    .split("\n")
+    .map((value) => value.trim())
+    .filter(Boolean).length;
+  const selectedImageCount = newImageFiles.length + newImageUrlCount;
+  const reachedMaxProductImages = selectedImageCount >= MAX_PRODUCT_IMAGES;
+
   const syncFromBuyNowPrice = (nextBuyNowPrice: number, shouldLowerBasePrice: boolean) => {
     const safeBuyNowPrice = Math.max(2000, Math.floor(nextBuyNowPrice / 1000) * 1000);
     setNewBuyNowPrice(String(safeBuyNowPrice));
@@ -2076,16 +2083,25 @@ export default function Home() {
                 className="h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="mb-2 text-xs font-semibold text-gray-700">
-                  또는 PC 이미지 업로드
+                <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-700">
+                  <span>또는 PC 이미지 업로드</span>
+                  <span>
+                    {selectedImageCount}/{MAX_PRODUCT_IMAGES}장
+                  </span>
                 </div>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
+                  disabled={reachedMaxProductImages}
                   onChange={(e) => setNewImageFiles(Array.from(e.target.files ?? []))}
-                  className="w-full text-sm"
+                  className="w-full text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 />
+                {reachedMaxProductImages ? (
+                  <div className="mt-2 text-xs font-semibold text-red-600">
+                    상품 이미지는 최대 5장까지 등록할 수 있습니다.
+                  </div>
+                ) : null}
                 {newImagePreviewUrls.length > 0 ? (
                   <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {newImagePreviewUrls.map((previewUrl, index) => (
