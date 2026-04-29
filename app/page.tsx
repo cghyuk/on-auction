@@ -1741,6 +1741,10 @@ export default function Home() {
                   />
                 ))}
               </div>
+
+              <div className="mt-4 max-h-[220px] overflow-y-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm leading-6 text-slate-200">
+                {selectedProduct.desc}
+              </div>
             </div>
 
             <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6">
@@ -1774,10 +1778,6 @@ export default function Home() {
                     입찰 {selectedProduct.bidCount}건 · 관심 {selectedProduct.likeCount} ·
                     조회 {selectedProduct.viewCount}
                   </div>
-                </div>
-
-                <div className="mb-4 whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
-                  {selectedProduct.desc}
                 </div>
 
                 {isOwnProduct && (
