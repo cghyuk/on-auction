@@ -1195,11 +1195,17 @@ export default function Home() {
     try {
       if (newImageFiles.length > 0) {
         registerStep = "업로드 설정 확인";
-        const uploadsEnabledSnap = await getDoc(doc(db, "settings", "app"));
-        const uploadsEnabledRaw = uploadsEnabledSnap.exists()
-          ? uploadsEnabledSnap.data()?.uploadsEnabled
-          : true;
-        const uploadsEnabled = uploadsEnabledRaw !== false;
+        let uploadsEnabled = true;
+        try {
+          const uploadsEnabledSnap = await getDoc(doc(db, "settings", "app"));
+          const uploadsEnabledRaw = uploadsEnabledSnap.exists()
+            ? uploadsEnabledSnap.data()?.uploadsEnabled
+            : true;
+          uploadsEnabled = uploadsEnabledRaw !== false;
+        } catch (settingsError) {
+          // settings 문서 읽기 권한이 없어도 업로드 자체는 진행 가능하도록 허용
+          console.warn("settings/app read failed, continue with uploads enabled", settingsError);
+        }
         if (!uploadsEnabled) {
           alert("관리자 설정으로 현재 이미지 업로드가 일시 중지되어 있습니다.");
           return;
