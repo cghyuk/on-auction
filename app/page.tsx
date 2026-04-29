@@ -194,6 +194,11 @@ const formatCountdown = (
   return `${hour}시간 ${minute}분 ${sec}초`;
 };
 
+const truncateText = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trimEnd()}...`;
+};
+
 const initialProducts: Product[] = [
   {
     id: "1",
@@ -1610,7 +1615,7 @@ export default function Home() {
                       {product.title}
                     </h3>
                     <p className="min-h-[42px] text-sm leading-5 text-gray-600">
-                      {product.desc}
+                      {truncateText(product.desc, 90)}
                     </p>
                     <div className="pt-1 text-2xl font-extrabold">
                       {product.price.toLocaleString()}원
@@ -1790,7 +1795,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="mb-4 rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
+              <div className="mb-4 whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
                 {selectedProduct.desc}
               </div>
 
