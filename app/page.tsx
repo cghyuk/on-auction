@@ -1596,6 +1596,27 @@ export default function Home() {
                         즉시구매가: {product.buyNowPrice.toLocaleString()}원
                       </div>
                     ) : null}
+                    {product.buyNowPrice ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleBuyNow(product.id);
+                        }}
+                        disabled={
+                          isOwnedByCurrentUser(product, currentUser) ||
+                          !!(product.endAt && product.endAt <= nowMs)
+                        }
+                        className={`w-full rounded-lg px-3 py-2 text-xs font-bold text-white ${
+                          isOwnedByCurrentUser(product, currentUser) ||
+                          !!(product.endAt && product.endAt <= nowMs)
+                            ? "cursor-not-allowed bg-gray-400"
+                            : "bg-purple-600 hover:bg-purple-700"
+                        }`}
+                      >
+                        즉시구매 바로가기
+                      </button>
+                    ) : null}
                     <div className="text-xs text-gray-500">
                       판매자: {product.seller}
                     </div>
