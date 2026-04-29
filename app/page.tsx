@@ -1189,21 +1189,21 @@ export default function Home() {
       return;
     }
 
-    if (newImageFiles.length > 0) {
-      const uploadsEnabledSnap = await getDoc(doc(db, "settings", "app"));
-      const uploadsEnabledRaw = uploadsEnabledSnap.exists()
-        ? uploadsEnabledSnap.data()?.uploadsEnabled
-        : true;
-      const uploadsEnabled = uploadsEnabledRaw !== false;
-      if (!uploadsEnabled) {
-        alert("관리자 설정으로 현재 이미지 업로드가 일시 중지되어 있습니다.");
-        return;
-      }
-    }
-
     setRegisterLoading(true);
 
     try {
+      if (newImageFiles.length > 0) {
+        const uploadsEnabledSnap = await getDoc(doc(db, "settings", "app"));
+        const uploadsEnabledRaw = uploadsEnabledSnap.exists()
+          ? uploadsEnabledSnap.data()?.uploadsEnabled
+          : true;
+        const uploadsEnabled = uploadsEnabledRaw !== false;
+        if (!uploadsEnabled) {
+          alert("관리자 설정으로 현재 이미지 업로드가 일시 중지되어 있습니다.");
+          return;
+        }
+      }
+
       const uploadedImageUrls: string[] = [];
       const uploadedThumbnailUrls: string[] = [];
       for (const file of newImageFiles) {
