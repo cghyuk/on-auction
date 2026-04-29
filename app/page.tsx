@@ -59,6 +59,7 @@ const MAX_IMAGE_LONG_EDGE = 1200;
 const MAX_THUMBNAIL_LONG_EDGE = 400;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const APP_VERSION = "f81786f";
 
 type BidLog = {
   id: string;
@@ -1463,7 +1464,12 @@ export default function Home() {
       <header className="bg-slate-950 px-4 py-4 text-white sm:px-6">
         <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center">
           <div className="flex items-center justify-between">
-            <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
+            <div className="flex items-end gap-2">
+              <div className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">온경매</div>
+              <span className="mb-1 inline-flex items-center rounded-full border border-blue-300 bg-blue-950/80 px-2 py-0.5 text-[10px] font-semibold text-blue-200 sm:text-xs">
+                ver {APP_VERSION}
+              </span>
+            </div>
             <div className="flex items-center gap-4 text-sm lg:hidden">
               <button
                 className="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700"
