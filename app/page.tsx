@@ -357,7 +357,7 @@ export default function Home() {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newCategory, setNewCategory] = useState("디지털/가전");
+  const [newCategory, setNewCategory] = useState("수집품");
   const [newPrice, setNewPrice] = useState("1000");
   const [newMinBid, setNewMinBid] = useState("1000");
   const [newBuyNowPrice, setNewBuyNowPrice] = useState("2000");
@@ -1053,7 +1053,7 @@ export default function Home() {
     setRegisterOpen(false);
     setNewTitle("");
     setNewDesc("");
-    setNewCategory("디지털/가전");
+    setNewCategory("수집품");
     setNewPrice("1000");
     setNewMinBid("1000");
     setNewBuyNowPrice("2000");
