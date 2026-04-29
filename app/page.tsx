@@ -823,6 +823,10 @@ export default function Home() {
         );
         return;
       }
+      if (autoBidValue % product.minBid !== 0) {
+        alert(`자동입찰 금액은 입찰단위(${product.minBid.toLocaleString()}원) 배수여야 합니다.`);
+        return;
+      }
       bidAmount = product.minBid;
       highestBidder = `${bidderName}(자동입찰)`;
     }
@@ -1900,6 +1904,7 @@ export default function Home() {
                       }
                       min={selectedAutoBidMin}
                       max={selectedAutoBidMax}
+                      step={selectedProduct.minBid}
                       disabled={isOwnProduct || isAuctionClosed}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none disabled:bg-gray-100"
                     />
