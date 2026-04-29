@@ -597,6 +597,11 @@ export default function Home() {
   const selectedNextBidPrice = selectedProduct
     ? selectedProduct.price + selectedProduct.minBid
     : 0;
+  const selectedAutoBidMin = selectedNextBidPrice;
+  const selectedAutoBidMax =
+    selectedProduct?.buyNowPrice && selectedProduct.buyNowPrice > selectedAutoBidMin
+      ? selectedProduct.buyNowPrice - selectedProduct.minBid
+      : undefined;
   const selectedWillBuyNowByMinBid =
     !!selectedProduct?.buyNowPrice && selectedNextBidPrice >= selectedProduct.buyNowPrice;
 
@@ -801,9 +806,20 @@ export default function Home() {
       bidAmount = product.minBid;
     } else {
       const autoBidValue = Number(autoBidById[productId] || 0);
-      if (!autoBidValue || autoBidValue < product.price + product.minBid) {
+      const minAutoBid = product.price + product.minBid;
+      const maxAutoBid =
+        product.buyNowPrice && product.buyNowPrice > minAutoBid
+          ? product.buyNowPrice - product.minBid
+          : undefined;
+      if (!autoBidValue || autoBidValue < minAutoBid) {
         alert(
-          `자동입찰 금액은 ${(product.price + product.minBid).toLocaleString()}원 이상이어야 합니다.`
+          `자동입찰 금액은 ${minAutoBid.toLocaleString()}원 이상이어야 합니다.`
+        );
+        return;
+      }
+      if (maxAutoBid !== undefined && autoBidValue > maxAutoBid) {
+        alert(
+          `자동입찰 금액은 ${maxAutoBid.toLocaleString()}원 이하여야 합니다. (즉시구매가 - 입찰단위)`
         );
         return;
       }
@@ -1870,9 +1886,11 @@ export default function Home() {
                   {(bidModeById[selectedProduct.id] || "min") === "auto" && (
                     <input
                       type="number"
-                      placeholder={`자동입찰 상한가 (${(
-                        selectedProduct.price + selectedProduct.minBid
-                      ).toLocaleString()}원 이상)`}
+                      placeholder={
+                        selectedAutoBidMax !== undefined
+                          ? `자동입찰 상한가 (${selectedAutoBidMin.toLocaleString()}~${selectedAutoBidMax.toLocaleString()}원)`
+                          : `자동입찰 상한가 (${selectedAutoBidMin.toLocaleString()}원 이상)`
+                      }
                       value={autoBidById[selectedProduct.id] || ""}
                       onChange={(e) =>
                         setAutoBidById((prev) => ({
@@ -1880,6 +1898,8 @@ export default function Home() {
                           [selectedProduct.id]: e.target.value,
                         }))
                       }
+                      min={selectedAutoBidMin}
+                      max={selectedAutoBidMax}
                       disabled={isOwnProduct || isAuctionClosed}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none disabled:bg-gray-100"
                     />
