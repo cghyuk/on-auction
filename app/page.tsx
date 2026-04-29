@@ -65,7 +65,7 @@ type BidLog = {
   productId: string;
   bidder: string;
   bidderUid: string;
-  mode: "min" | "auto";
+  mode: "min" | "auto" | "buy_now";
   bidAmount: number;
   priceAfterBid: number;
   createdAt: number;
@@ -901,6 +901,86 @@ export default function Home() {
     if (!pendingBidProductId) return;
     await applyBid(pendingBidProductId);
     closeWarningModal();
+  };
+
+  const handleBuyNow = async (productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    if (!product || !currentUser) return;
+    if (!(await ensurePhoneProfile("즉시구매"))) return;
+    if (!product.buyNowPrice) {
+      alert("즉시구매가가 설정되지 않은 상품입니다.");
+      return;
+    }
+    if (isOwnedByCurrentUser(product, currentUser)) {
+      alert("본인이 등록한 상품은 즉시구매할 수 없습니다.");
+      return;
+    }
+    if (product.endAt && product.endAt <= Date.now()) {
+      alert("이미 마감된 경매 상품입니다.");
+      return;
+    }
+
+    const bidderName = getMaskedName(currentUser);
+    const confirmed = window.confirm(
+      `즉시구매가 ${product.buyNowPrice.toLocaleString()}원에 구매하시겠습니까?`
+    );
+    if (!confirmed) return;
+
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, "products", productId);
+        const latestSnap = await transaction.get(productRef);
+        if (!latestSnap.exists()) {
+          throw new Error("상품이 존재하지 않습니다.");
+        }
+        const latest = latestSnap.data() as Product;
+        if (!latest.buyNowPrice) {
+          throw new Error("즉시구매가가 설정되지 않은 상품입니다.");
+        }
+        if (isOwnedByCurrentUser(latest, currentUser)) {
+          throw new Error("본인 상품은 즉시구매할 수 없습니다.");
+        }
+        if (latest.endAt && latest.endAt <= Date.now()) {
+          throw new Error("마감된 경매입니다.");
+        }
+
+        const buyNowPrice = latest.buyNowPrice;
+        transaction.update(productRef, {
+          price: buyNowPrice,
+          highestBidder: `${bidderName}(즉시구매)`,
+          bidCount: latest.bidCount + 1,
+          endAt: Date.now(),
+          expireAt: Date.now() + EXPIRE_AFTER_END_MS,
+        });
+
+        const bidRef = doc(collection(db, "products", productId, "bids"));
+        transaction.set(bidRef, {
+          id: bidRef.id,
+          productId,
+          bidder: bidderName,
+          bidderUid: currentUser.uid,
+          mode: "buy_now",
+          bidAmount: Math.max(0, buyNowPrice - latest.price),
+          priceAfterBid: buyNowPrice,
+          createdAt: Date.now(),
+        } satisfies BidLog);
+
+        return { buyNowPrice, highestBidder: `${bidderName}(즉시구매)` };
+      });
+
+      alert(
+        `즉시구매 완료\n구매 금액: ${result.buyNowPrice.toLocaleString()}원\n구매자: ${
+          result.highestBidder
+        }`
+      );
+    } catch (error) {
+      console.error(error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "즉시구매 처리 중 문제가 발생했습니다."
+      );
+    }
   };
 
   const ensurePhoneProfile = async (actionLabel: string) => {
@@ -1784,6 +1864,19 @@ export default function Home() {
                       ? "즉시구매하기"
                       : "입찰하기"}
                   </button>
+                  {selectedProduct.buyNowPrice ? (
+                    <button
+                      onClick={() => handleBuyNow(selectedProduct.id)}
+                      disabled={isOwnProduct || isAuctionClosed}
+                      className={`w-full rounded-lg px-4 py-3 text-sm font-bold text-white ${
+                        isOwnProduct || isAuctionClosed
+                          ? "cursor-not-allowed bg-gray-400"
+                          : "bg-purple-600 hover:bg-purple-700"
+                      }`}
+                    >
+                      즉시구매가 제시하기 ({selectedProduct.buyNowPrice.toLocaleString()}원)
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -1799,8 +1892,13 @@ export default function Home() {
                         className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
                       >
                         [{new Date(log.createdAt).toLocaleString()}] {log.bidder} /{" "}
-                        {log.mode === "auto" ? "자동입찰" : "즉시입찰"} / +{log.bidAmount.toLocaleString()}
-                        원 / 현재가 {log.priceAfterBid.toLocaleString()}원
+                        {log.mode === "auto"
+                          ? "자동입찰"
+                          : log.mode === "buy_now"
+                          ? "즉시구매"
+                          : "즉시입찰"}{" "}
+                        / +{log.bidAmount.toLocaleString()}원 / 현재가{" "}
+                        {log.priceAfterBid.toLocaleString()}원
                       </li>
                     ))}
                   </ul>
