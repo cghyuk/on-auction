@@ -13,11 +13,8 @@ import {
   collection,
   deleteDoc,
   doc,
-  limit as fsLimit,
   getDoc,
   onSnapshot,
-  orderBy,
-  query,
   runTransaction,
   setDoc,
   updateDoc,
@@ -371,7 +368,6 @@ export default function Home() {
   const [newImagesText, setNewImagesText] = useState("");
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [newImagePreviewUrls, setNewImagePreviewUrls] = useState<string[]>([]);
-  const [bidLogs, setBidLogs] = useState<BidLog[]>([]);
   const [nowMs, setNowMs] = useState(0);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -540,22 +536,6 @@ export default function Home() {
     setNowMs(Date.now());
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!selectedProductId) {
-      return;
-    }
-    const q = query(
-      collection(db, "products", selectedProductId, "bids"),
-      orderBy("createdAt", "desc"),
-      fsLimit(20)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const logs = snapshot.docs.map((item) => item.data() as BidLog);
-      setBidLogs(logs);
-    });
-    return () => unsubscribe();
-  }, [selectedProductId]);
 
   const getMaskedName = (user: User | null) => {
     if (!user?.email) return "회원";
@@ -1763,66 +1743,68 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="overflow-y-auto p-4 sm:p-6">
-              <h3 className="mb-3 text-2xl font-bold sm:text-3xl">{selectedProduct.title}</h3>
+            <div className="flex h-full flex-col overflow-hidden p-4 sm:p-6">
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <h3 className="mb-3 text-2xl font-bold sm:text-3xl">{selectedProduct.title}</h3>
 
-              <div className="mb-4 text-3xl font-extrabold sm:text-4xl">
-                {selectedProduct.price.toLocaleString()}원
+                <div className="mb-4 text-3xl font-extrabold sm:text-4xl">
+                  {selectedProduct.price.toLocaleString()}원
+                </div>
+
+                <div className="mb-4 text-sm font-semibold text-blue-600">
+                  입찰 단위: {selectedProduct.minBid.toLocaleString()}원
+                </div>
+                {selectedProduct.buyNowPrice ? (
+                  <div className="mb-4 text-sm font-semibold text-purple-600">
+                    즉시구매가: {selectedProduct.buyNowPrice.toLocaleString()}원
+                  </div>
+                ) : null}
+
+                <div className="mb-4 space-y-1 text-sm text-gray-600">
+                  <div>카테고리: {selectedProduct.category}</div>
+                  <div>판매자: {selectedProduct.seller}</div>
+                  <div className="font-semibold text-red-600">
+                    마감까지 {formatCountdown(selectedProduct.endAt, nowMs)}
+                  </div>
+                  <div className="font-semibold text-emerald-600">
+                    실시간 가격 순위 #{rankByProductId[selectedProduct.id] ?? "-"}
+                  </div>
+                  <div>현재 최고 입찰자: {selectedProduct.highestBidder || "없음"}</div>
+                  <div className="text-xs text-gray-500">
+                    입찰 {selectedProduct.bidCount}건 · 관심 {selectedProduct.likeCount} ·
+                    조회 {selectedProduct.viewCount}
+                  </div>
+                </div>
+
+                <div className="mb-4 whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
+                  {selectedProduct.desc}
+                </div>
+
+                {isOwnProduct && (
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      onClick={openEditModal}
+                      disabled={(selectedProduct.editCount ?? 0) >= 2}
+                      className="flex-1 rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      내 상품 수정
+                    </button>
+                    <button
+                      onClick={handleDeleteProduct}
+                      className="flex-1 rounded-lg bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700"
+                    >
+                      내 상품 삭제
+                    </button>
+                  </div>
+                )}
+                {isOwnProduct && (
+                  <div className="mb-4 text-xs text-gray-500">
+                    수정 횟수: {selectedProduct.editCount ?? 0}/2
+                  </div>
+                )}
               </div>
 
-              <div className="mb-4 text-sm font-semibold text-blue-600">
-                입찰 단위: {selectedProduct.minBid.toLocaleString()}원
-              </div>
-              {selectedProduct.buyNowPrice ? (
-                <div className="mb-4 text-sm font-semibold text-purple-600">
-                  즉시구매가: {selectedProduct.buyNowPrice.toLocaleString()}원
-                </div>
-              ) : null}
-
-              <div className="mb-4 space-y-1 text-sm text-gray-600">
-                <div>카테고리: {selectedProduct.category}</div>
-                <div>판매자: {selectedProduct.seller}</div>
-                <div className="font-semibold text-red-600">
-                  마감까지 {formatCountdown(selectedProduct.endAt, nowMs)}
-                </div>
-                <div className="font-semibold text-emerald-600">
-                  실시간 가격 순위 #{rankByProductId[selectedProduct.id] ?? "-"}
-                </div>
-                <div>현재 최고 입찰자: {selectedProduct.highestBidder || "없음"}</div>
-                <div className="text-xs text-gray-500">
-                  입찰 {selectedProduct.bidCount}건 · 관심 {selectedProduct.likeCount} ·
-                  조회 {selectedProduct.viewCount}
-                </div>
-              </div>
-
-              <div className="mb-4 whitespace-pre-wrap break-words rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
-                {selectedProduct.desc}
-              </div>
-
-              {isOwnProduct && (
-                <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-                  <button
-                    onClick={openEditModal}
-                    disabled={(selectedProduct.editCount ?? 0) >= 2}
-                    className="flex-1 rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-400"
-                  >
-                    내 상품 수정
-                  </button>
-                  <button
-                    onClick={handleDeleteProduct}
-                    className="flex-1 rounded-lg bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700"
-                  >
-                    내 상품 삭제
-                  </button>
-                </div>
-              )}
-              {isOwnProduct && (
-                <div className="mb-4 text-xs text-gray-500">
-                  수정 횟수: {selectedProduct.editCount ?? 0}/2
-                </div>
-              )}
-
-              <div className="rounded-2xl border border-gray-200 p-4">
+              <div className="mt-3 shrink-0 rounded-2xl border border-gray-200 bg-white p-4">
                 <div className="mb-3 text-base font-bold">입찰하기</div>
 
                 {!currentUser && (
@@ -1931,31 +1913,6 @@ export default function Home() {
                     </button>
                   ) : null}
                 </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-gray-200 p-4">
-                <div className="mb-3 text-base font-bold">입찰 기록 로그 (최신 20건)</div>
-                {bidLogs.length === 0 ? (
-                  <div className="text-sm text-gray-500">아직 입찰 기록이 없습니다.</div>
-                ) : (
-                  <ul className="space-y-2 text-sm">
-                    {bidLogs.map((log) => (
-                      <li
-                        key={log.id}
-                        className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                      >
-                        [{new Date(log.createdAt).toLocaleString()}] {log.bidder} /{" "}
-                        {log.mode === "auto"
-                          ? "자동입찰"
-                          : log.mode === "buy_now"
-                          ? "즉시구매"
-                          : "즉시입찰"}{" "}
-                        / +{log.bidAmount.toLocaleString()}원 / 현재가{" "}
-                        {log.priceAfterBid.toLocaleString()}원
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
             </div>
           </div>
