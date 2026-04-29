@@ -1152,8 +1152,9 @@ export default function Home() {
       return;
     }
 
+    const isOneMinuteTestEnd = newEndDays === "test-1m";
     const endDays = Number(newEndDays);
-    if (!endDays || endDays < 1 || endDays > 30) {
+    if (!isOneMinuteTestEnd && (!endDays || endDays < 1 || endDays > 30)) {
       alert("마감일은 1일 이상 30일 이하로 선택해주세요.");
       return;
     }
@@ -1295,7 +1296,7 @@ export default function Home() {
           price,
           minBid,
           buyNowPrice,
-          endDays,
+          ...(isOneMinuteTestEnd ? { endMinutes: 1 } : { endDays }),
           images: imageList,
           thumbnailImages: thumbnailImageList,
         });
@@ -1305,7 +1306,7 @@ export default function Home() {
         // 임시 우회: Functions 호출 실패 시 클라이언트 직접 등록(수수료 차감 없음)
         registerStep = "대체 등록 요청(Firestore)";
         const now = Date.now();
-        const endAt = now + endDays * DAY_MS;
+        const endAt = isOneMinuteTestEnd ? now + 60 * 1000 : now + endDays * DAY_MS;
         const productRef = doc(collection(db, "products"));
         await setDoc(productRef, {
           id: productRef.id,
@@ -2221,6 +2222,7 @@ export default function Home() {
                 onChange={(e) => setNewEndDays(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               >
+                <option value="test-1m">[테스트] 1분 뒤 마감</option>
                 {[1, 3, 5, 7].map((day) => (
                   <option key={day} value={String(day)}>
                     {day}일 뒤 마감

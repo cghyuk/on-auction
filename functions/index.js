@@ -63,6 +63,7 @@ exports.createProductWithFee = onCall(
     const minBid = Number(data.minBid);
     const buyNowPrice = Number(data.buyNowPrice);
     const endDays = Number(data.endDays);
+    const endMinutes = Number(data.endMinutes);
     const images = Array.isArray(data.images)
       ? data.images.map((v) => asTrimmedString(v)).filter(Boolean)
       : [];
@@ -93,8 +94,13 @@ exports.createProductWithFee = onCall(
         "즉시구매가는 최소 2,000원이며 시작가보다 최소 1,000원 높아야 합니다."
       );
     }
-    if (!endDays || endDays < 1 || endDays > 30) {
-      throw new HttpsError("invalid-argument", "마감일은 1~30일 사이여야 합니다.");
+    const hasMinuteEnd = Number.isFinite(endMinutes) && endMinutes > 0;
+    const hasDayEnd = Number.isFinite(endDays) && endDays >= 1 && endDays <= 30;
+    if (!hasMinuteEnd && !hasDayEnd) {
+      throw new HttpsError("invalid-argument", "마감일은 1~30일 또는 테스트 1분이어야 합니다.");
+    }
+    if (hasMinuteEnd && endMinutes !== 1) {
+      throw new HttpsError("invalid-argument", "테스트 분 단위 마감은 1분만 허용됩니다.");
     }
     if (images.length === 0) {
       throw new HttpsError("invalid-argument", "이미지는 최소 1개 이상 필요합니다.");
@@ -115,7 +121,7 @@ exports.createProductWithFee = onCall(
     const uid = request.auth.uid;
     const email = request.auth.token.email || "";
     const now = Date.now();
-    const endAt = now + endDays * DAY_MS;
+    const endAt = hasMinuteEnd ? now + endMinutes * 60 * 1000 : now + endDays * DAY_MS;
     const expireAt = endAt + EXPIRE_AFTER_END_MS;
     const userRef = db.collection("users").doc(uid);
     const productRef = db.collection("products").doc();
