@@ -1959,8 +1959,6 @@ export default function Home() {
             <h3 className="mb-5 text-2xl font-bold">상품 등록</h3>
 
             <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">상품명</label>
               <input
                 type="text"
                 placeholder="상품명"
@@ -1968,20 +1966,14 @@ export default function Home() {
                 onChange={(e) => setNewTitle(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">상품 설명</label>
               <textarea
                 placeholder="상품 설명"
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 className="h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">카테고리</label>
               <select
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
@@ -1991,12 +1983,7 @@ export default function Home() {
                   <option key={category}>{category}</option>
                 ))}
               </select>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                  시작가 / 입찰 단위
-                </label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="number"
@@ -2030,10 +2017,7 @@ export default function Home() {
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
                 />
               </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">즉시구매가</label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="number"
@@ -2079,10 +2063,7 @@ export default function Home() {
                   +1000
                 </button>
               </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">마감일</label>
               <select
                 value={newEndDays}
                 onChange={(e) => setNewEndDays(e.target.value)}
@@ -2094,17 +2075,13 @@ export default function Home() {
                   </option>
                 ))}
               </select>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">이미지 URL</label>
               <textarea
                 placeholder={"이미지 URL 입력 (한 줄에 하나씩)\nhttps://...\nhttps://..."}
                 value={newImagesText}
                 onChange={(e) => setNewImagesText(e.target.value)}
                 className="h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              </div>
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-700">
                   <span>또는 PC 이미지 업로드</span>

@@ -52,13 +52,11 @@ type Product = {
 const EXPIRE_AFTER_END_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_PRODUCT_IMAGES = 5;
-const MAX_ORIGINAL_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_COMPRESSED_IMAGE_BYTES = 1 * 1024 * 1024;
+const MAX_UPLOAD_IMAGE_BYTES = 1 * 1024 * 1024;
 const FILE_UPLOAD_TIMEOUT_MS = 60 * 1000;
-const MAX_IMAGE_LONG_EDGE = 1200;
-const MAX_THUMBNAIL_LONG_EDGE = 400;
+const MAX_IMAGE_WIDTH = 1600;
+const MAX_THUMBNAIL_WIDTH = 320;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 
 type BidLog = {
   id: string;
@@ -122,44 +120,27 @@ const readImageFile = (file: File) =>
     image.src = objectUrl;
   });
 
-const canvasToCompressedBlob = (
+const canvasToJpegBlob = (
   canvas: HTMLCanvasElement,
-  quality: number,
-  preferredType: "image/webp" | "image/jpeg"
+  quality: number
 ) =>
   new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          canvas.toBlob(
-            (fallbackBlob) => {
-              if (!fallbackBlob) {
-                reject(new Error("이미지 변환에 실패했습니다."));
-                return;
-              }
-              resolve(fallbackBlob);
-            },
-            "image/jpeg",
-            quality
-          );
+          reject(new Error("이미지 변환에 실패했습니다."));
           return;
         }
         resolve(blob);
       },
-      preferredType,
+      "image/jpeg",
       quality
     );
   });
 
-const resizeImageToCompressedBlob = async (
-  file: File,
-  maxLongEdge: number,
-  quality: number,
-  preferredType: "image/webp" | "image/jpeg"
-) => {
+const resizeImageToJpeg = async (file: File, maxWidth: number, quality: number) => {
   const image = await readImageFile(file);
-  const longEdge = Math.max(image.width, image.height);
-  const ratio = Math.min(1, maxLongEdge / longEdge);
+  const ratio = Math.min(1, maxWidth / image.width);
   const width = Math.max(1, Math.round(image.width * ratio));
   const height = Math.max(1, Math.round(image.height * ratio));
   const canvas = document.createElement("canvas");
@@ -170,7 +151,7 @@ const resizeImageToCompressedBlob = async (
     throw new Error("이미지 처리 컨텍스트를 생성할 수 없습니다.");
   }
   context.drawImage(image, 0, 0, width, height);
-  return canvasToCompressedBlob(canvas, quality, preferredType);
+  return canvasToJpegBlob(canvas, quality);
 };
 
 const formatCountdown = (
@@ -997,13 +978,6 @@ export default function Home() {
     };
   }, [newImageFiles]);
 
-  const newImageUrlCount = newImagesText
-    .split("\n")
-    .map((value) => value.trim())
-    .filter(Boolean).length;
-  const selectedImageCount = newImageFiles.length + newImageUrlCount;
-  const reachedMaxProductImages = selectedImageCount >= MAX_PRODUCT_IMAGES;
-
   const syncFromBuyNowPrice = (nextBuyNowPrice: number, shouldLowerBasePrice: boolean) => {
     const safeBuyNowPrice = Math.max(2000, Math.floor(nextBuyNowPrice / 1000) * 1000);
     setNewBuyNowPrice(String(safeBuyNowPrice));
@@ -1085,26 +1059,19 @@ export default function Home() {
       alert("이미지 URL 또는 PC 이미지 파일을 최소 1개 등록해주세요.");
       return;
     }
-    const invalidFile = newImageFiles.find((file) => {
-      const lowerName = file.name.toLowerCase();
-      const hasAllowedExtension = ALLOWED_IMAGE_EXTENSIONS.some((ext) =>
-        lowerName.endsWith(ext)
-      );
-      const hasAllowedMimeType = ALLOWED_IMAGE_TYPES.includes(file.type);
-      return !hasAllowedExtension || !hasAllowedMimeType;
-    });
-    if (invalidFile) {
+    const invalidTypeFile = newImageFiles.find(
+      (file) => !ALLOWED_IMAGE_TYPES.includes(file.type)
+    );
+    if (invalidTypeFile) {
       alert(
-        `지원하지 않는 이미지 형식입니다.\n허용 형식: JPG, PNG, WEBP\n대상: ${invalidFile.name}`
+        `지원하지 않는 이미지 형식입니다.\n허용 형식: JPG, PNG, WEBP\n대상: ${invalidTypeFile.name}`
       );
       return;
     }
-    const tooLargeFile = newImageFiles.find(
-      (file) => file.size > MAX_ORIGINAL_IMAGE_BYTES
-    );
+    const tooLargeFile = newImageFiles.find((file) => file.size > MAX_UPLOAD_IMAGE_BYTES);
     if (tooLargeFile) {
       alert(
-        `원본 이미지 용량이 너무 큽니다. (최대 10MB)\n대상: ${tooLargeFile.name}`
+        `이미지 용량이 너무 큽니다. (최대 1MB)\n대상: ${tooLargeFile.name}`
       );
       return;
     }
@@ -1132,29 +1099,8 @@ export default function Home() {
           .toString(36)
           .slice(2)}-${safeName}`;
 
-        const compressedBlob = await resizeImageToCompressedBlob(
-          file,
-          MAX_IMAGE_LONG_EDGE,
-          0.82,
-          "image/webp"
-        );
-        if (compressedBlob.size > MAX_COMPRESSED_IMAGE_BYTES) {
-          throw new Error(
-            `압축 후 이미지 용량이 1MB를 초과합니다: ${file.name}`
-          );
-        }
-
-        const thumbnailBlob = await resizeImageToCompressedBlob(
-          file,
-          MAX_THUMBNAIL_LONG_EDGE,
-          0.72,
-          "image/webp"
-        );
-        if (thumbnailBlob.size > MAX_COMPRESSED_IMAGE_BYTES) {
-          throw new Error(
-            `압축 후 썸네일 용량이 1MB를 초과합니다: ${file.name}`
-          );
-        }
+        const compressedBlob = await resizeImageToJpeg(file, MAX_IMAGE_WIDTH, 0.82);
+        const thumbnailBlob = await resizeImageToJpeg(file, MAX_THUMBNAIL_WIDTH, 0.72);
 
         const storageRef = ref(storage, `products/${currentUser.uid}/${unique}`);
         const thumbnailRef = ref(
@@ -1162,7 +1108,7 @@ export default function Home() {
           `products/${currentUser.uid}/thumb-${unique}`
         );
         await Promise.race([
-          uploadBytes(storageRef, compressedBlob, { contentType: compressedBlob.type }),
+          uploadBytes(storageRef, compressedBlob, { contentType: "image/jpeg" }),
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new Error(`이미지 업로드 시간 초과: ${file.name}`)),
@@ -1171,7 +1117,7 @@ export default function Home() {
           ),
         ]);
         await Promise.race([
-          uploadBytes(thumbnailRef, thumbnailBlob, { contentType: thumbnailBlob.type }),
+          uploadBytes(thumbnailRef, thumbnailBlob, { contentType: "image/jpeg" }),
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new Error(`썸네일 업로드 시간 초과: ${file.name}`)),
@@ -1959,8 +1905,6 @@ export default function Home() {
             <h3 className="mb-5 text-2xl font-bold">상품 등록</h3>
 
             <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">상품명</label>
               <input
                 type="text"
                 placeholder="상품명"
@@ -1968,20 +1912,14 @@ export default function Home() {
                 onChange={(e) => setNewTitle(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">상품 설명</label>
               <textarea
                 placeholder="상품 설명"
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 className="h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">카테고리</label>
               <select
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
@@ -1991,12 +1929,7 @@ export default function Home() {
                   <option key={category}>{category}</option>
                 ))}
               </select>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                  시작가 / 입찰 단위
-                </label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="number"
@@ -2030,10 +1963,7 @@ export default function Home() {
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
                 />
               </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">즉시구매가</label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="number"
@@ -2079,10 +2009,7 @@ export default function Home() {
                   +1000
                 </button>
               </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">마감일</label>
               <select
                 value={newEndDays}
                 onChange={(e) => setNewEndDays(e.target.value)}
@@ -2094,37 +2021,24 @@ export default function Home() {
                   </option>
                 ))}
               </select>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-gray-700">이미지 URL</label>
               <textarea
                 placeholder={"이미지 URL 입력 (한 줄에 하나씩)\nhttps://...\nhttps://..."}
                 value={newImagesText}
                 onChange={(e) => setNewImagesText(e.target.value)}
                 className="h-28 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none"
               />
-              </div>
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>또는 PC 이미지 업로드</span>
-                  <span>
-                    {selectedImageCount}/{MAX_PRODUCT_IMAGES}장
-                  </span>
+                <div className="mb-2 text-xs font-semibold text-gray-700">
+                  또는 PC 이미지 업로드
                 </div>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
-                  disabled={reachedMaxProductImages}
                   onChange={(e) => setNewImageFiles(Array.from(e.target.files ?? []))}
-                  className="w-full text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full text-sm"
                 />
-                {reachedMaxProductImages ? (
-                  <div className="mt-2 text-xs font-semibold text-red-600">
-                    상품 이미지는 최대 5장까지 등록할 수 있습니다.
-                  </div>
-                ) : null}
                 {newImagePreviewUrls.length > 0 ? (
                   <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {newImagePreviewUrls.map((previewUrl, index) => (

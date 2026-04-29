@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      // 임시 테스트 모드: Functions 배포 이슈가 있을 때 로그인 사용자 생성 허용
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+
+      match /bids/{bidId} {
+        allow read: if true;
+        allow create, update, delete: if isSignedIn();
+      }
+    }
+
+    match /users/{uid} {
+      allow read, create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
