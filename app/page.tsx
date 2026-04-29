@@ -1190,9 +1190,11 @@ export default function Home() {
     }
 
     setRegisterLoading(true);
+    let registerStep = "상품 등록 준비";
 
     try {
       if (newImageFiles.length > 0) {
+        registerStep = "업로드 설정 확인";
         const uploadsEnabledSnap = await getDoc(doc(db, "settings", "app"));
         const uploadsEnabledRaw = uploadsEnabledSnap.exists()
           ? uploadsEnabledSnap.data()?.uploadsEnabled
@@ -1207,6 +1209,7 @@ export default function Home() {
       const uploadedImageUrls: string[] = [];
       const uploadedThumbnailUrls: string[] = [];
       for (const file of newImageFiles) {
+        registerStep = `이미지 처리/업로드 (${file.name})`;
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const unique = `${Date.now()}-${Math.random()
           .toString(36)
@@ -1271,6 +1274,7 @@ export default function Home() {
         ...imageUrlList,
       ];
       try {
+        registerStep = "상품 등록 요청(Cloud Functions)";
         const createProductWithFee = httpsCallable(functions, "createProductWithFee");
         await createProductWithFee({
           title: newTitle.trim(),
@@ -1287,6 +1291,7 @@ export default function Home() {
         alert("상품이 등록되었습니다. 등록 수수료 1,000P가 차감되었습니다.");
       } catch (callableError) {
         // 임시 우회: Functions 호출 실패 시 클라이언트 직접 등록(수수료 차감 없음)
+        registerStep = "대체 등록 요청(Firestore)";
         const now = Date.now();
         const endAt = now + endDays * DAY_MS;
         const productRef = doc(collection(db, "products"));
@@ -1319,17 +1324,27 @@ export default function Home() {
     } catch (error) {
       console.error(error);
       if (error instanceof FirebaseError) {
+        const helpByCode: Record<string, string> = {
+          "permission-denied":
+            "권한 오류입니다. Storage/Firestore Rules 배포 상태와 로그인 상태를 확인해주세요.",
+          "storage/unauthorized":
+            "스토리지 업로드 권한이 없습니다. storage.rules와 버킷 설정을 확인해주세요.",
+          "storage/unauthenticated":
+            "로그인이 만료되었을 수 있습니다. 다시 로그인 후 시도해주세요.",
+          unauthenticated: "로그인 정보가 필요합니다. 다시 로그인 후 시도해주세요.",
+        };
+        const help =
+          helpByCode[error.code] ??
+          error.message ??
+          "Firebase 설정(권한/버킷/함수)을 확인해주세요.";
         alert(
-          `상품 등록 실패 (${error.code})\n${
-            error.message ||
-            "Storage 권한/버킷 설정을 확인해주세요."
-          }`
+          `상품 등록 실패\n단계: ${registerStep}\n코드: ${error.code}\n${help}`
         );
       } else {
         alert(
-          error instanceof Error
-            ? error.message
-            : "상품 등록 중 문제가 발생했습니다."
+          `상품 등록 실패\n단계: ${registerStep}\n${
+            error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다."
+          }`
         );
       }
     } finally {
